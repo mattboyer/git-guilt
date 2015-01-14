@@ -1,0 +1,139 @@
+"""
+Port of git-guilt to Python
+"""
+
+import re
+import argparse
+import subprocess
+import collections
+
+
+class GitRunner(object):
+    def __init__(self):
+        # Possibly try to find the correct path to the git runtime?
+        self.name_regex = re.compile(r'^[^(]*\((.*?) \d{4}-\d{2}-\d{2}')
+
+    def _run_git(self, args):
+        git_process = subprocess.Popen(
+            ['git'] + args,
+            cwd='/home/mboyer/tmp/git-guilt',
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+        )
+        try:
+            out, err = git_process.communicate()
+        except Exception as e:
+            raise e
+        if not out:
+            raise ValueError("No files changed")
+        return out.splitlines()
+
+    def diff(self, since_rev, until_rev):
+        diff_args = ['diff', '--name-only', since_rev]
+        if until_rev:
+            diff_args.append(until_rev)
+        return self._run_git(diff_args)
+
+    def blame_locs(self, blame):
+        blame_args = ['blame', '--', blame.repo_path]
+        if blame.rev:
+            blame_args.append(blame.rev)
+        lines = self._run_git(blame_args)
+        # TODO For now default to extracting names
+        for line in lines:
+            matches = self.name_regex.match(line)
+            if matches:
+                line_author = matches.group(1).strip()
+                blame.bucket[line_author] += 1
+
+
+class BlameTicket(object):
+    '''A queued blame. This is a TODO item, really'''
+
+    def __init__(self, bucket, path, rev):
+        self.bucket = bucket
+        self.repo_path = path
+        self.rev = rev
+
+    def __repr__(self):
+        return "Will blame \"{0}\" for rev {1} into bucket {2}".format(
+            self.repo_path,
+            self.rev,
+            self.bucket
+        )
+
+
+class PyGuilt(object):
+    """Implements crap"""
+
+    def __init__(self):
+        self.runner = GitRunner()
+        # This should probably be spun out
+        self.parser = argparse.ArgumentParser()
+        self.parser.add_argument(
+            '-w',
+            '--whitespace',
+            action='store_true',
+        )
+        self.parser.add_argument('-e', '--email', action='store_true')
+        self.parser.add_argument('since', default='HEAD', nargs='?')
+        # Surely until should default to something sensible
+        self.parser.add_argument('until', default='', nargs='?')
+        self.args = None
+
+        self.blame_queue = list()
+        # This is a port of the JS blame object. The since and until members
+        # are 'buckets'
+        self.since = collections.defaultdict(int)
+        self.until = collections.defaultdict(int)
+        self.loc_deltas = list()
+
+    def map_blames(self):
+        """Prepares the list of blames to tabulate"""
+
+        for repo_path in self.runner.diff(self.args.since, self.args.until):
+            self.blame_queue.append(
+                BlameTicket(self.since, repo_path, self.args.since)
+            )
+            self.blame_queue.append(
+                BlameTicket(self.until, repo_path, self.args.until)
+            )
+
+        # TODO This should be made parallel
+        print("Blame queue", self.blame_queue)
+        for blame in self.blame_queue:
+            self.runner.blame_locs(blame)
+
+    def _reduce_since_blame(self, author, loc_count):
+        until_loc_count = self.until[author] or 0
+        loc_delta = until_loc_count - loc_count
+        if loc_delta != 0:
+            self.loc_deltas.append({'author': author, 'delta': loc_delta})
+
+    def _reduce_until_blame(self, author, loc_count):
+        if author not in self.since:
+            # We have a new author
+            self.loc_deltas.append({'author': author, 'delta': loc_count})
+
+    def reduce_blames(self):
+        print('Since', self.since)
+        print('Until', self.until)
+
+        for author, loc_count in self.since.items():
+            self._reduce_since_blame(author, loc_count)
+
+        for author, loc_count in self.until.items():
+            self._reduce_until_blame(author, loc_count)
+
+        print(self.loc_deltas)
+
+    def run(self):
+        self.args = self.parser.parse_args()
+        self.map_blames()
+        self.reduce_blames()
+
+if '__main__' == __name__:
+    guilt = PyGuilt()
+    guilt.run()
+    # TODO Do the right thing WRT return code

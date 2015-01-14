@@ -1,0 +1,2 @@
+-R
+--exclude=node_modules
