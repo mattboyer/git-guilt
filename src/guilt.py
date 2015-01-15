@@ -9,18 +9,43 @@ import collections
 
 
 class GitRunner(object):
+    _toplevel_args = ['rev-parse', '--show-toplevel']
+    _author_regex = r'^[^(]*\((.*?) \d{4}-\d{2}-\d{2}'
+
     def __init__(self):
-        # Possibly try to find the correct path to the git runtime?
-        self.name_regex = re.compile(r'^[^(]*\((.*?) \d{4}-\d{2}-\d{2}')
+        self.name_regex = re.compile(GitRunner._author_regex)
+        self._git_toplevel = None
+        self._get_git_root()
+
+    def _get_git_root(self):
+        try:
+            top_level_dir = self._run_git(GitRunner._toplevel_args)
+        except Exception as e:
+            # Do something appropriate
+            raise e
+        else:
+            self._git_toplevel = top_level_dir[0]
 
     def _run_git(self, args):
+        '''
+        Runs the git executable with the arguments given and returns a list of
+        lines produced on its standard output.
+        '''
+
+        popen_kwargs = {
+            'stdout': subprocess.PIPE,
+            'stderr': subprocess.PIPE,
+            'universal_newlines': True,
+        }
+
+        if self._git_toplevel:
+            popen_kwargs['cwd'] = self._git_toplevel
+
         git_process = subprocess.Popen(
             ['git'] + args,
-            cwd='/home/mboyer/tmp/git-guilt',
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            universal_newlines=True,
+            **popen_kwargs
         )
+
         try:
             out, err = git_process.communicate()
         except Exception as e:
@@ -29,10 +54,16 @@ class GitRunner(object):
             raise ValueError("No files changed")
         return out.splitlines()
 
-    def diff(self, since_rev, until_rev):
+    def get_delta_files(self, since_rev, until_rev):
+        '''
+        Returns a list of files which have been modified between since_rev and
+        until_rev.
+        '''
+
         diff_args = ['diff', '--name-only', since_rev]
         if until_rev:
             diff_args.append(until_rev)
+        # We could return a set
         return self._run_git(diff_args)
 
     def blame_locs(self, blame):
@@ -92,10 +123,15 @@ class PyGuilt(object):
     def map_blames(self):
         """Prepares the list of blames to tabulate"""
 
-        for repo_path in self.runner.diff(self.args.since, self.args.until):
+        for repo_path in self.runner.get_delta_files(
+                self.args.since,
+                self.args.until
+            ):
+
             self.blame_queue.append(
                 BlameTicket(self.since, repo_path, self.args.since)
             )
+
             self.blame_queue.append(
                 BlameTicket(self.until, repo_path, self.args.until)
             )
@@ -134,6 +170,5 @@ class PyGuilt(object):
         self.reduce_blames()
 
 if '__main__' == __name__:
-    guilt = PyGuilt()
-    guilt.run()
+    PyGuilt().run()
     # TODO Do the right thing WRT return code
