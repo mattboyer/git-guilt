@@ -8,3 +8,6 @@ install:
         - "pip install -r requirements.txt"
 
 script: nosetests test/ --with-coverage --cover-package=guilt
+
+after_success:
+          coveralls
