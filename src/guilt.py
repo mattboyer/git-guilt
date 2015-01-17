@@ -54,7 +54,11 @@ class GitRunner(object):
         try:
             out, err = git_process.communicate()
         except Exception as e:
-            raise GitError("Couldn't run git")
+            raise GitError("Couldn't run git: " + str(e))
+
+        if err:
+            raise GitError("Git failed with " + err)
+
         if not out:
             raise ValueError("No output")
         return out.splitlines()
@@ -182,6 +186,7 @@ class PyGuilt(object):
         try:
             self.process_args()
         except GitError as arg_ex:
+            sys.stderr.write(str(arg_ex))
             return 1
         else:
             self.map_blames()
