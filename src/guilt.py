@@ -8,6 +8,7 @@ import subprocess
 import collections
 import sys
 
+
 class GitError(Exception):
     pass
 
@@ -138,9 +139,8 @@ class PyGuilt(object):
         """Prepares the list of blames to tabulate"""
 
         for repo_path in self.runner.get_delta_files(
-                self.args.since,
-                self.args.until
-            ):
+                self.args.since, self.args.until
+                ):
 
             self.blame_queue.append(
                 BlameTicket(self.since, repo_path, self.args.since)
