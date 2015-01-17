@@ -21,6 +21,7 @@ class GitRunner(object):
     def __init__(self):
         self.name_regex = re.compile(GitRunner._author_regex)
         self._git_toplevel = None
+        self._get_git_root()
 
     def _get_git_root(self):
         try:
@@ -112,8 +113,6 @@ class PyGuilt(object):
 
     def __init__(self):
         self.runner = GitRunner()
-        # FIXME This is temporary and for testing purposes only!!!
-        self.runner._get_git_root()
         # This should probably be spun out
         self.parser = argparse.ArgumentParser(prog='git guilt')
         self.parser.add_argument(

@@ -22,10 +22,10 @@ persistent=yes
 load-plugins=
 
 # DEPRECATED
-include-ids=no
+#include-ids=no
 
 # DEPRECATED
-symbols=no
+#symbols=no
 
 # Use multiple processes to speed up Pylint.
 jobs=1
