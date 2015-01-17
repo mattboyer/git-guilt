@@ -8,6 +8,7 @@ import subprocess
 import collections
 import sys
 
+
 class GitError(Exception):
     pass
 
@@ -20,6 +21,7 @@ class GitRunner(object):
     def __init__(self):
         self.name_regex = re.compile(GitRunner._author_regex)
         self._git_toplevel = None
+        self._get_git_root()
 
     def _get_git_root(self):
         try:
@@ -45,7 +47,7 @@ class GitRunner(object):
         if self._git_toplevel:
             popen_kwargs['cwd'] = self._git_toplevel
 
-        git_process = subprocess.Popen(
+        git_process = subprocess.Popen(  # pylint: disable=W0142
             [GitRunner._git_executable] + args,
             **popen_kwargs
         )
@@ -53,7 +55,11 @@ class GitRunner(object):
         try:
             out, err = git_process.communicate()
         except Exception as e:
-            raise GitError("Couldn't run git")
+            raise GitError("Couldn't run git: " + str(e))
+
+        if err:
+            raise GitError("Git failed with " + err)
+
         if not out:
             raise ValueError("No output")
         return out.splitlines()
@@ -107,8 +113,6 @@ class PyGuilt(object):
 
     def __init__(self):
         self.runner = GitRunner()
-        # FIXME This is temporary and for testing purposes only!!!
-        self.runner._get_git_root()
         # This should probably be spun out
         self.parser = argparse.ArgumentParser(prog='git guilt')
         self.parser.add_argument(
@@ -138,9 +142,8 @@ class PyGuilt(object):
         """Prepares the list of blames to tabulate"""
 
         for repo_path in self.runner.get_delta_files(
-                self.args.since,
-                self.args.until
-            ):
+                self.args.since, self.args.until
+                ):
 
             self.blame_queue.append(
                 BlameTicket(self.since, repo_path, self.args.since)
@@ -182,6 +185,7 @@ class PyGuilt(object):
         try:
             self.process_args()
         except GitError as arg_ex:
+            sys.stderr.write(str(arg_ex))
             return 1
         else:
             self.map_blames()

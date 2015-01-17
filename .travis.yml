@@ -1,13 +1,15 @@
 language: python
 
 python:
-        - "2.7"
-        - "3.2"
+        - "3.4"
 
 install:
         - "pip install -r requirements.txt"
 
-script: nosetests test/ --with-coverage --cover-package=guilt
+script:
+        - pep8 src
+        - nosetests test/ --with-coverage --cover-package=guilt
+        - pylint src/*.py
 
 after_success:
-          coveralls
+        coveralls
