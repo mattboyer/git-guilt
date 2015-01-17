@@ -67,8 +67,11 @@ class GitRunner(object):
         diff_args = ['diff', '--name-only', since_rev]
         if until_rev:
             diff_args.append(until_rev)
-        # We could return a set
-        return self._run_git(diff_args)
+
+        file_list = self._run_git(diff_args)
+        if 0 == len(file_list):
+            raise ValueError()
+        return set(file_list)
 
     def blame_locs(self, blame):
         blame_args = ['blame', '--', blame.repo_path]

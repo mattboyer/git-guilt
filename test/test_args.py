@@ -81,3 +81,21 @@ class GitRunnerTestCase(TestCase):
 
         runner = guilt.GitRunner()
         self.assertEquals(['a', 'b', 'c'], runner._run_git(['log']))
+
+    @patch('guilt.GitRunner._run_git')
+    def test_get_delta_files(self, mock_run_git):
+        mock_run_git.return_value = ['foo.c', 'foo.h']
+
+        runner = guilt.GitRunner()
+        self.assertEquals(
+            set(['foo.c', 'foo.h']),
+            runner.get_delta_files('HEAD~1', 'HEAD')
+        )
+
+    @patch('guilt.GitRunner._run_git')
+    def test_get_delta_no_files(self, mock_run_git):
+        mock_run_git.return_value = []
+
+        runner = guilt.GitRunner()
+        with self.assertRaises(ValueError):
+            runner.get_delta_files('HEAD~1', 'HEAD')
