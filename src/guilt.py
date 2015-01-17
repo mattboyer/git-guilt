@@ -6,6 +6,10 @@ import re
 import argparse
 import subprocess
 import collections
+import sys
+
+class ArgumentError(Exception):
+    pass
 
 
 class GitRunner(object):
@@ -101,16 +105,16 @@ class PyGuilt(object):
     def __init__(self):
         self.runner = GitRunner()
         # This should probably be spun out
-        self.parser = argparse.ArgumentParser()
+        self.parser = argparse.ArgumentParser(prog='git guilt')
         self.parser.add_argument(
             '-w',
             '--whitespace',
             action='store_true',
         )
         self.parser.add_argument('-e', '--email', action='store_true')
-        self.parser.add_argument('since', default='HEAD', nargs='?')
+        self.parser.add_argument('since', nargs='?')
         # Surely until should default to something sensible
-        self.parser.add_argument('until', default='', nargs='?')
+        self.parser.add_argument('until', nargs='?')
         self.args = None
 
         self.blame_queue = list()
@@ -119,6 +123,11 @@ class PyGuilt(object):
         self.since = collections.defaultdict(int)
         self.until = collections.defaultdict(int)
         self.loc_deltas = list()
+
+    def process_args(self):
+        self.args = self.parser.parse_args()
+        if not (self.args.since and self.args.until):
+            raise ArgumentError('bad args')
 
     def map_blames(self):
         """Prepares the list of blames to tabulate"""
@@ -165,10 +174,14 @@ class PyGuilt(object):
         print(self.loc_deltas)
 
     def run(self):
-        self.args = self.parser.parse_args()
-        self.map_blames()
-        self.reduce_blames()
+        try:
+            self.process_args()
+        except ArgumentError as arg_ex:
+            return 1
+        else:
+            self.map_blames()
+            self.reduce_blames()
+            return 0
 
 if '__main__' == __name__:
-    PyGuilt().run()
-    # TODO Do the right thing WRT return code
+    sys.exit(PyGuilt().run())
