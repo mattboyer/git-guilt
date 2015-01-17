@@ -1,12 +1,12 @@
 from mock import patch, Mock
 from unittest import TestCase
 
-from guilt import *
+import guilt
 
 class ArgTestCase(TestCase):
     def setUp(self):
-        self.guilt = PyGuilt()
+        self.guilt = guilt.PyGuilt()
 
-    @patch('sys.argv', ['--help'])
+    @patch('guilt.argparse._sys.argv', ['--help'])
     def test_help(self):
         self.guilt.run()
