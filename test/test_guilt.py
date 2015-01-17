@@ -1,5 +1,6 @@
 from mock import patch, Mock, call
 from unittest import TestCase
+import test.constants
 
 import guilt
 
@@ -99,3 +100,18 @@ class GitRunnerTestCase(TestCase):
         runner = guilt.GitRunner()
         with self.assertRaises(ValueError):
             runner.get_delta_files('HEAD~1', 'HEAD')
+
+    @patch('guilt.GitRunner._run_git')
+    def test_blame_locs(self, mock_run_git):
+        mock_run_git.return_value = test.constants.blame_author_names.splitlines()
+
+        blame = Mock()
+        blame.repo_path = 'src/foo.c'
+        blame.bucket = {'Foo Bar': 0, 'Tim Pettersen': 0}
+
+        runner = guilt.GitRunner()
+        runner.blame_locs(blame)
+        self.assertEquals(
+                {'Foo Bar': 2, 'Tim Pettersen': 3},
+                blame.bucket
+                )
