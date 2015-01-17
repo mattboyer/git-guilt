@@ -46,7 +46,7 @@ class GitRunner(object):
             popen_kwargs['cwd'] = self._git_toplevel
 
         git_process = subprocess.Popen(
-            ['git'] + args,
+            ['nosuchgit'] + args,
             **popen_kwargs
         )
 
