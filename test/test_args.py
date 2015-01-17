@@ -58,3 +58,11 @@ class GitRunnerTestCase(TestCase):
         runner._git_toplevel = '/my/top/level/git/directory'
         runner._run_git(['foo'])
         mock_process.assert_called_once_with(['nosuchgit', 'foo'], cwd='/my/top/level/git/directory', stderr=-1, stdout=-1, universal_newlines=True)
+
+    @patch('guilt.subprocess.Popen')
+    def test_run_git_no_output(self, mock_process):
+        mock_process.return_value.communicate = Mock(return_value=('', None))
+
+        runner = guilt.GitRunner()
+        with self.assertRaises(ValueError):
+            runner._run_git(['log'])

@@ -55,7 +55,7 @@ class GitRunner(object):
         except Exception as e:
             raise e
         if not out:
-            raise ValueError("No files changed")
+            raise ValueError("No output")
         return out.splitlines()
 
     def get_delta_files(self, since_rev, until_rev):
