@@ -10,7 +10,7 @@ install:
 script:
         - pep8 src
         - nosetests test/ --with-coverage --cover-package=guilt
-        - pylint src/*
+        - pylint src/*.py
 
 after_success:
         coveralls
