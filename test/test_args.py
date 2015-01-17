@@ -25,7 +25,7 @@ class ArgTestCase(TestCase):
 
     @patch('sys.argv', ['arg0', 'foo'])
     def test_bad_args(self):
-        with self.assertRaises(guilt.ArgumentError):
+        with self.assertRaises(guilt.GitError):
             self.guilt.process_args()
 
         self.assertEquals(1, self.guilt.run())
@@ -66,3 +66,18 @@ class GitRunnerTestCase(TestCase):
         runner = guilt.GitRunner()
         with self.assertRaises(ValueError):
             runner._run_git(['log'])
+
+    @patch('guilt.subprocess.Popen')
+    def test_run_git_exception(self, mock_process):
+        mock_process.return_value.communicate = Mock(side_effect=OSError)
+
+        runner = guilt.GitRunner()
+        with self.assertRaises(guilt.GitError):
+            runner._run_git(['log'])
+
+    @patch('guilt.subprocess.Popen')
+    def test_run_git(self, mock_process):
+        mock_process.return_value.communicate = Mock(return_value=('a\nb\nc', None))
+
+        runner = guilt.GitRunner()
+        self.assertEquals(['a', 'b', 'c'], runner._run_git(['log']))

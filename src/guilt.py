@@ -8,7 +8,7 @@ import subprocess
 import collections
 import sys
 
-class ArgumentError(Exception):
+class GitError(Exception):
     pass
 
 
@@ -53,7 +53,7 @@ class GitRunner(object):
         try:
             out, err = git_process.communicate()
         except Exception as e:
-            raise e
+            raise GitError("Couldn't run git")
         if not out:
             raise ValueError("No output")
         return out.splitlines()
@@ -129,7 +129,7 @@ class PyGuilt(object):
     def process_args(self):
         self.args = self.parser.parse_args()
         if not (self.args.since and self.args.until):
-            raise ArgumentError('bad args')
+            raise GitError('bad args')
 
     def map_blames(self):
         """Prepares the list of blames to tabulate"""
@@ -178,7 +178,7 @@ class PyGuilt(object):
     def run(self):
         try:
             self.process_args()
-        except ArgumentError as arg_ex:
+        except GitError as arg_ex:
             return 1
         else:
             self.map_blames()
