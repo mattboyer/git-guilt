@@ -15,11 +15,11 @@ class ArgumentError(Exception):
 class GitRunner(object):
     _toplevel_args = ['rev-parse', '--show-toplevel']
     _author_regex = r'^[^(]*\((.*?) \d{4}-\d{2}-\d{2}'
+    _git_executable = 'git'
 
     def __init__(self):
         self.name_regex = re.compile(GitRunner._author_regex)
         self._git_toplevel = None
-        self._get_git_root()
 
     def _get_git_root(self):
         try:
@@ -46,7 +46,7 @@ class GitRunner(object):
             popen_kwargs['cwd'] = self._git_toplevel
 
         git_process = subprocess.Popen(
-            ['nosuchgit'] + args,
+            [GitRunner._git_executable] + args,
             **popen_kwargs
         )
 
@@ -104,6 +104,8 @@ class PyGuilt(object):
 
     def __init__(self):
         self.runner = GitRunner()
+        # FIXME This is temporary and for testing purposes only!!!
+        self.runner._get_git_root()
         # This should probably be spun out
         self.parser = argparse.ArgumentParser(prog='git guilt')
         self.parser.add_argument(
