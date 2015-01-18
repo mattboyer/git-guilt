@@ -22,16 +22,18 @@ class GitRunner(object):
     def __init__(self):
         self.name_regex = re.compile(GitRunner._author_regex)
         self._git_toplevel = None
-        self._get_git_root()
+        try:
+            self._get_git_root()
+        except GitError as ex:
+            # Do something appropriate
+            sys.stderr.write(str(ex))
+            raise SystemExit(4)
 
     def _get_git_root(self):
-        try:
-            top_level_dir = self._run_git(GitRunner._toplevel_args)
-        except Exception as e:
-            # Do something appropriate
-            raise e
-        else:
-            self._git_toplevel = top_level_dir[0]
+        # We should probably go beyond just finding the root dir for the Git
+        # repo and do some sanity-checking on git itself
+        top_level_dir = self._run_git(GitRunner._toplevel_args)
+        self._git_toplevel = top_level_dir[0]
 
     def _run_git(self, args):
         '''
@@ -181,13 +183,10 @@ class PyGuilt(object):
         return deltas
 
     def reduce_blames(self):
-        print('Since', self.since)
-        print('Until', self.until)
-
         self.loc_deltas = functools.reduce(
             self._reduce_since_blame,
             self.since.items(),
-            []
+            self.loc_deltas
         )
 
         self.loc_deltas = functools.reduce(
@@ -205,8 +204,8 @@ class PyGuilt(object):
     def run(self):
         try:
             self.process_args()
-        except GitError as arg_ex:
-            sys.stderr.write(str(arg_ex))
+        except GitError as ex:
+            sys.stderr.write(str(ex))
             return 1
         else:
             self.map_blames()

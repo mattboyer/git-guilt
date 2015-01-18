@@ -126,6 +126,14 @@ class GitRunnerTestCase(TestCase):
             blame.bucket
         )
 
+    @patch('guilt.subprocess.Popen')
+    def test_get_git_root_exception(self, mock_process):
+        mock_process.return_value.communicate = Mock(side_effect=OSError)
+
+        with self.assertRaises(SystemExit):
+            new_runner = guilt.GitRunner()
+
+
 class GuiltTestCase(TestCase):
 
     def setUp(self):
