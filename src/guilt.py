@@ -107,6 +107,11 @@ class BlameTicket(object):
             self.bucket
         )
 
+    def __eq__(self, blame):
+        return (self.bucket == blame.bucket) \
+                and (self.repo_path == blame.repo_path) \
+                and (self.bucket == blame.bucket)
+
 
 class PyGuilt(object):
     """Implements crap"""

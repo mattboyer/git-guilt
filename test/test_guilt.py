@@ -122,6 +122,40 @@ class GitRunnerTestCase(TestCase):
 
         self.runner.blame_locs(blame)
         self.assertEquals(
-                {'Foo Bar': 2, 'Tim Pettersen': 3},
-                blame.bucket
-                )
+            {'Foo Bar': 2, 'Tim Pettersen': 3},
+            blame.bucket
+        )
+
+class GuiltTestCase(TestCase):
+
+    def setUp(self):
+        # We need to mock up subprocess.Popen so that the 'git' invocation
+        # performed when the GitRunner object is instantiated doesn't result in
+        # an actual process being forked
+        self._popen_patch = patch('guilt.subprocess.Popen')
+        self.mocked_popen = self._popen_patch.start()
+        self.mocked_popen.return_value = Mock(
+            communicate=Mock(return_value=('bar', None))
+        )
+
+        self.guilt = guilt.PyGuilt()
+
+    def tearDown(self):
+        self._popen_patch.stop()
+
+    @patch('guilt.GitRunner.get_delta_files')
+    def test_map_blames(self, mock_get_delta):
+        mock_get_delta.return_value = ['foo.c', 'foo.h']
+        self.guilt.args = Mock(since='HEAD~4', until='HEAD~1')
+
+        self.guilt.map_blames()
+        self.assertEquals(4, len(self.guilt.blame_queue))
+        self.assertEquals(
+                [
+                    guilt.BlameTicket(self.guilt.since, 'foo.c', 'HEAD~4'),
+                    guilt.BlameTicket(self.guilt.until, 'foo.c', 'HEAD~1'),
+                    guilt.BlameTicket(self.guilt.since, 'foo.h', 'HEAD~4'),
+                    guilt.BlameTicket(self.guilt.until, 'foo.h', 'HEAD~1'),
+                ],
+                self.guilt.blame_queue
+            )
