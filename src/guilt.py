@@ -6,6 +6,7 @@ import re
 import argparse
 import subprocess
 import collections
+import functools
 import sys
 
 
@@ -21,16 +22,18 @@ class GitRunner(object):
     def __init__(self):
         self.name_regex = re.compile(GitRunner._author_regex)
         self._git_toplevel = None
-        self._get_git_root()
+        try:
+            self._get_git_root()
+        except GitError as ex:
+            # Do something appropriate
+            sys.stderr.write(str(ex))
+            raise SystemExit(4)
 
     def _get_git_root(self):
-        try:
-            top_level_dir = self._run_git(GitRunner._toplevel_args)
-        except Exception as e:
-            # Do something appropriate
-            raise e
-        else:
-            self._git_toplevel = top_level_dir[0]
+        # We should probably go beyond just finding the root dir for the Git
+        # repo and do some sanity-checking on git itself
+        top_level_dir = self._run_git(GitRunner._toplevel_args)
+        self._git_toplevel = top_level_dir[0]
 
     def _run_git(self, args):
         '''
@@ -163,26 +166,34 @@ class PyGuilt(object):
         for blame in self.blame_queue:
             self.runner.blame_locs(blame)
 
-    def _reduce_since_blame(self, author, loc_count):
+    def _reduce_since_blame(self, deltas, foo):
+        author, loc_count = foo
         until_loc_count = self.until[author] or 0
         loc_delta = until_loc_count - loc_count
         if loc_delta != 0:
-            self.loc_deltas.append({'author': author, 'delta': loc_delta})
+            deltas.append({'author': author, 'delta': loc_delta})
 
-    def _reduce_until_blame(self, author, loc_count):
+        return deltas
+
+    def _reduce_until_blame(self, deltas, foo):
+        author, loc_count = foo
         if author not in self.since:
             # We have a new author
-            self.loc_deltas.append({'author': author, 'delta': loc_count})
+            deltas.append({'author': author, 'delta': loc_count})
+        return deltas
 
     def reduce_blames(self):
-        print('Since', self.since)
-        print('Until', self.until)
+        self.loc_deltas = functools.reduce(
+            self._reduce_since_blame,
+            self.since.items(),
+            self.loc_deltas
+        )
 
-        for author, loc_count in self.since.items():
-            self._reduce_since_blame(author, loc_count)
-
-        for author, loc_count in self.until.items():
-            self._reduce_until_blame(author, loc_count)
+        self.loc_deltas = functools.reduce(
+            self._reduce_until_blame,
+            self.until.items(),
+            self.loc_deltas
+        )
 
         self.loc_deltas.sort(key=lambda x: x['delta'], reverse=True)
         # TODO
@@ -193,8 +204,8 @@ class PyGuilt(object):
     def run(self):
         try:
             self.process_args()
-        except GitError as arg_ex:
-            sys.stderr.write(str(arg_ex))
+        except GitError as ex:
+            sys.stderr.write(str(ex))
             return 1
         else:
             self.map_blames()
