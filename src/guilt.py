@@ -6,6 +6,7 @@ import re
 import argparse
 import subprocess
 import collections
+import functools
 import sys
 
 
@@ -163,26 +164,37 @@ class PyGuilt(object):
         for blame in self.blame_queue:
             self.runner.blame_locs(blame)
 
-    def _reduce_since_blame(self, author, loc_count):
+    def _reduce_since_blame(self, deltas, foo):
+        author, loc_count = foo
         until_loc_count = self.until[author] or 0
         loc_delta = until_loc_count - loc_count
         if loc_delta != 0:
-            self.loc_deltas.append({'author': author, 'delta': loc_delta})
+            deltas.append({'author': author, 'delta': loc_delta})
 
-    def _reduce_until_blame(self, author, loc_count):
+        return deltas
+
+    def _reduce_until_blame(self, deltas, foo):
+        author, loc_count = foo
         if author not in self.since:
             # We have a new author
-            self.loc_deltas.append({'author': author, 'delta': loc_count})
+            deltas.append({'author': author, 'delta': loc_count})
+        return deltas
 
     def reduce_blames(self):
         print('Since', self.since)
         print('Until', self.until)
 
-        for author, loc_count in self.since.items():
-            self._reduce_since_blame(author, loc_count)
+        self.loc_deltas = functools.reduce(
+            self._reduce_since_blame,
+            self.since.items(),
+            []
+        )
 
-        for author, loc_count in self.until.items():
-            self._reduce_until_blame(author, loc_count)
+        self.loc_deltas = functools.reduce(
+            self._reduce_until_blame,
+            self.until.items(),
+            self.loc_deltas
+        )
 
         self.loc_deltas.sort(key=lambda x: x['delta'], reverse=True)
         # TODO

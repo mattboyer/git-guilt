@@ -164,10 +164,11 @@ class GuiltTestCase(TestCase):
 
     def test_reduce_locs(self):
         self.guilt.since = {'Alice': 5, 'Bob': 3, 'Carol': 4}
-        self.guilt.until = {'Alice': 6, 'Bob': 6, 'Carol': 2, 'Dave': 1}
+        self.guilt.until = {'Alice': 6, 'Bob': 6, 'Carol': 2, 'Dave': 1, 'Ellen': 2}
 
         expected_deltas = [
                 {'delta': 3, 'author': 'Bob'},
+                {'delta': 2, 'author': 'Ellen'},
                 {'delta': 1, 'author': 'Alice'},
                 {'delta': 1, 'author': 'Dave'},
                 {'delta': -2, 'author': 'Carol'},
