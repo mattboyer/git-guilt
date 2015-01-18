@@ -184,7 +184,11 @@ class PyGuilt(object):
         for author, loc_count in self.until.items():
             self._reduce_until_blame(author, loc_count)
 
-        print(self.loc_deltas)
+        self.loc_deltas.sort(key=lambda x: x['delta'], reverse=True)
+        # TODO
+        # We need to handle the case where >1 author has the same guilt - we
+        # expect these to be sorted lexicographically
+        return self.loc_deltas
 
     def run(self):
         try:
@@ -194,7 +198,7 @@ class PyGuilt(object):
             return 1
         else:
             self.map_blames()
-            self.reduce_blames()
+            print(self.reduce_blames())
             return 0
 
 if '__main__' == __name__:

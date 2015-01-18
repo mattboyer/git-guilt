@@ -159,3 +159,23 @@ class GuiltTestCase(TestCase):
                 ],
                 self.guilt.blame_queue
             )
+
+
+
+    def test_reduce_locs(self):
+        self.guilt.since = {'Alice': 5, 'Bob': 3, 'Carol': 4}
+        self.guilt.until = {'Alice': 6, 'Bob': 6, 'Carol': 2, 'Dave': 1}
+
+        expected_deltas = [
+                {'delta': 3, 'author': 'Bob'},
+                {'delta': 1, 'author': 'Alice'},
+                {'delta': 1, 'author': 'Dave'},
+                {'delta': -2, 'author': 'Carol'},
+                ]
+
+        deltas = self.guilt.reduce_blames()
+
+        self.assertEquals(
+            expected_deltas,
+            deltas
+        )
