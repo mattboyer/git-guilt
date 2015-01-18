@@ -8,6 +8,84 @@ import guilt
 # FIXME Should probably use mock.patch instead
 guilt.GitRunner._git_executable = 'nosuchgit'
 
+class DeltaTestCase(TestCase):
+
+    def test_eq(self):
+        a = guilt.Delta('Alpha', 4)
+        b = guilt.Delta('Beta', 6)
+        self.assertFalse(a == b)
+        self.assertTrue(a != b)
+
+        b = guilt.Delta('Alpha', 6)
+        self.assertFalse(a == b)
+        self.assertTrue(a != b)
+
+        b = guilt.Delta('Alpha', 4)
+        self.assertTrue(a == b)
+        self.assertTrue(a <= b)
+        self.assertTrue(a >= b)
+        self.assertFalse(a != b)
+
+    def test_comparison(self):
+        a = guilt.Delta('Alpha', 4)
+
+        # a > b because a is guiltier than b
+        b = guilt.Delta('Beta', -6)
+
+        # Test __lt__ and __le__
+        self.assertTrue(a < b)
+        self.assertTrue(a <= b)
+        self.assertFalse(b < a)
+        self.assertFalse(b <= a)
+
+        # Test __gt__ and __ge__
+        self.assertFalse(a > b)
+        self.assertFalse(a >= b)
+        self.assertTrue(b > a)
+        self.assertTrue(b >= a)
+
+        # a and b are equally guilty, but a comes before b in a lexicographic
+        # sort
+        b = guilt.Delta('Beta', 4)
+
+        # Test __lt__ and __le__
+        self.assertTrue(a < b)
+        self.assertTrue(a <= b)
+        self.assertFalse(b < a)
+        self.assertFalse(b <= a)
+
+        # Test __gt__ and __ge__
+        self.assertFalse(a > b)
+        self.assertFalse(a >= b)
+        self.assertTrue(b > a)
+        self.assertTrue(b >= a)
+
+        b = guilt.Delta('Aardvark', 4)
+        self.assertFalse(a < b)
+        self.assertFalse(a <= b)
+
+        self.assertTrue(a > b)
+        self.assertTrue(a >= b)
+
+    def test_repr(self):
+        a = guilt.Delta('Alpha', -4)
+        b = guilt.Delta('Beta', 6)
+        c = guilt.Delta('Gamma', 0)
+
+        self.assertEquals("<Delta \"Alpha\": -4>", repr(a))
+        self.assertEquals("<Delta \"Beta\": 6>", repr(b))
+        self.assertEquals("<Delta \"Gamma\": 0>", repr(c))
+
+
+    def test_str(self):
+        a = guilt.Delta('Alpha', -4)
+        b = guilt.Delta('Beta', 6)
+        c = guilt.Delta('Gamma', 0)
+
+        self.assertEquals("Alpha [-4]: ----", str(a))
+        self.assertEquals("Beta [6]: ++++++", str(b))
+        self.assertEquals("Gamma [0]: ", str(c))
+
 class ArgTestCase(TestCase):
 
     def setUp(self):
@@ -175,11 +253,11 @@ class GuiltTestCase(TestCase):
         self.guilt.until = {'Alice': 6, 'Bob': 6, 'Carol': 2, 'Dave': 1, 'Ellen': 2}
 
         expected_deltas = [
-                {'delta': 3, 'author': 'Bob'},
-                {'delta': 2, 'author': 'Ellen'},
-                {'delta': 1, 'author': 'Alice'},
-                {'delta': 1, 'author': 'Dave'},
-                {'delta': -2, 'author': 'Carol'},
+                guilt.Delta(count=3, author='Bob'),
+                guilt.Delta(count=2, author='Ellen'),
+                guilt.Delta(count=1, author='Alice'),
+                guilt.Delta(count=1, author='Dave'),
+                guilt.Delta(count=-2, author='Carol'),
                 ]
 
         deltas = self.guilt.reduce_blames()
@@ -187,4 +265,17 @@ class GuiltTestCase(TestCase):
         self.assertEquals(
             expected_deltas,
             deltas
+        )
+
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_show_guilt(self, mock_stdout):
+        self.guilt.loc_deltas = [guilt.Delta('foo', 15)]
+        self.guilt.files = ['a', 'b']
+
+        self.guilt.show_guilt_stats()
+        self.assertEquals('''
+foo [15]: +++++++++++++++
+2 files changed
+'''.lstrip(),
+            mock_stdout.getvalue()
         )

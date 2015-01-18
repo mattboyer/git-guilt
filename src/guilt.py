@@ -116,6 +116,65 @@ class BlameTicket(object):
             and (self.bucket == blame.bucket)
 
 
+class Delta(object):
+
+    def __init__(self, author, count):
+        self.author = author
+        self.count = count
+
+    def __repr__(self):
+        return "<Delta \"{author}\": {count}>".format(
+            author=self.author,
+            count=self.count
+        )
+
+    def __str__(self):
+        display_count = str(self.count)
+
+        pluses = str()
+        if self.count < 0:
+            pluses = '-' * -self.count
+        elif self.count > 0:
+            pluses = '+' * self.count
+
+        return "{author} [{count}]: {pluses}".format(
+            author=self.author,
+            count=display_count,
+            pluses=pluses,
+        )
+
+    def __eq__(self, rhs):
+        return (self.author == rhs.author) \
+            and (self.count == rhs.count)
+
+    def __ne__(self, rhs):
+        return not (self == rhs)
+
+    def __lt__(self, rhs):
+        if self.count > rhs.count:
+            return True
+        elif self.count == rhs.count:
+            # Compare the authors' names
+            return self.author < rhs.author
+        else:
+            return False
+
+    def __le__(self, rhs):
+        return (self < rhs) or (self == rhs)
+
+    def __gt__(self, delta):
+        if self.count < delta.count:
+            return True
+        elif self.count == delta.count:
+            # Compare the authors' names
+            return self.author > delta.author
+        else:
+            return False
+
+    def __ge__(self, rhs):
+        return (self > rhs) or (self == rhs)
+
+
 class PyGuilt(object):
     """Implements crap"""
 
@@ -140,6 +199,7 @@ class PyGuilt(object):
         self.since = collections.defaultdict(int)
         self.until = collections.defaultdict(int)
         self.loc_deltas = list()
+        self.files = list()
 
     def process_args(self):
         self.args = self.parser.parse_args()
@@ -152,6 +212,7 @@ class PyGuilt(object):
         for repo_path in self.runner.get_delta_files(
                 self.args.since, self.args.until
                 ):
+            self.files.append(repo_path)
 
             self.blame_queue.append(
                 BlameTicket(self.since, repo_path, self.args.since)
@@ -162,7 +223,6 @@ class PyGuilt(object):
             )
 
         # TODO This should be made parallel
-        print("Blame queue", self.blame_queue)
         for blame in self.blame_queue:
             self.runner.blame_locs(blame)
 
@@ -171,7 +231,7 @@ class PyGuilt(object):
         until_loc_count = self.until[author] or 0
         loc_delta = until_loc_count - loc_count
         if loc_delta != 0:
-            deltas.append({'author': author, 'delta': loc_delta})
+            deltas.append(Delta(author, loc_delta))
 
         return deltas
 
@@ -179,7 +239,7 @@ class PyGuilt(object):
         author, loc_count = foo
         if author not in self.since:
             # We have a new author
-            deltas.append({'author': author, 'delta': loc_count})
+            deltas.append(Delta(author, loc_count))
         return deltas
 
     def reduce_blames(self):
@@ -195,11 +255,18 @@ class PyGuilt(object):
             self.loc_deltas
         )
 
-        self.loc_deltas.sort(key=lambda x: x['delta'], reverse=True)
+        self.loc_deltas.sort()
         # TODO
         # We need to handle the case where >1 author has the same guilt - we
         # expect these to be sorted lexicographically
         return self.loc_deltas
+
+    def show_guilt_stats(self):
+        # TODO Do something like diffstat's number of files changed, number or
+        # insertions and number of deletions
+        for delta in self.loc_deltas:
+            print(str(delta))
+        print("{0} files changed".format(len(self.files)))
 
     def run(self):
         try:
@@ -209,7 +276,8 @@ class PyGuilt(object):
             return 1
         else:
             self.map_blames()
-            print(self.reduce_blames())
+            self.reduce_blames()
+            self.show_guilt_stats()
             return 0
 
 if '__main__' == __name__:
