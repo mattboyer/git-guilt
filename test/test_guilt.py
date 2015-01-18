@@ -126,12 +126,15 @@ class GitRunnerTestCase(TestCase):
             blame.bucket
         )
 
+    @patch('sys.stderr', new_callable=io.StringIO)
     @patch('guilt.subprocess.Popen')
-    def test_get_git_root_exception(self, mock_process):
+    def test_get_git_root_exception(self, mock_process, mock_stderr):
         mock_process.return_value.communicate = Mock(side_effect=OSError)
 
         with self.assertRaises(SystemExit):
             new_runner = guilt.GitRunner()
+
+        self.assertEquals("Couldn't run git: ", mock_stderr.getvalue())
 
 
 class GuiltTestCase(TestCase):
