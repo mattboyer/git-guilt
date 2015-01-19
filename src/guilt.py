@@ -103,13 +103,6 @@ class BlameTicket(object):
         self.repo_path = path
         self.rev = rev
 
-    def __repr__(self):
-        return "Will blame \"{0}\" for rev {1} into bucket {2}".format(
-            self.repo_path,
-            self.rev,
-            self.bucket
-        )
-
     def __eq__(self, blame):
         return (self.bucket == blame.bucket) \
             and (self.repo_path == blame.repo_path) \
@@ -256,9 +249,6 @@ class PyGuilt(object):
         )
 
         self.loc_deltas.sort()
-        # TODO
-        # We need to handle the case where >1 author has the same guilt - we
-        # expect these to be sorted lexicographically
         return self.loc_deltas
 
     def show_guilt_stats(self):

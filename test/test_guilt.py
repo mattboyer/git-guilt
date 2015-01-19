@@ -169,6 +169,13 @@ class GitRunnerTestCase(TestCase):
             self.runner._run_git(['log'])
 
     @patch('guilt.subprocess.Popen')
+    def test_run_git_stderr(self, mock_process):
+        mock_process.return_value.communicate = Mock(return_value=('', 'error'))
+
+        with self.assertRaises(guilt.GitError):
+            self.runner._run_git(['log'])
+
+    @patch('guilt.subprocess.Popen')
     def test_run_git(self, mock_process):
         mock_process.return_value.communicate = Mock(return_value=('a\nb\nc', None))
 
@@ -279,3 +286,17 @@ foo [15]: +++++++++++++++
 '''.lstrip(),
             mock_stdout.getvalue()
         )
+
+    # Many more testcases are required!!
+    @patch('guilt.PyGuilt.show_guilt_stats')
+    @patch('guilt.PyGuilt.reduce_blames')
+    @patch('guilt.PyGuilt.map_blames')
+    @patch('guilt.PyGuilt.process_args')
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_show_run(self, mock_stdout, mock_process_args, mock_map, mock_reduce, mock_show):
+
+        self.assertEquals(0, self.guilt.run())
+        mock_process_args.assert_called_once_with()
+        mock_map.assert_called_once_with()
+        mock_reduce.assert_called_once_with()
+        mock_show.assert_called_once_with()
