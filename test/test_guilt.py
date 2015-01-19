@@ -169,6 +169,13 @@ class GitRunnerTestCase(TestCase):
             self.runner._run_git(['log'])
 
     @patch('guilt.subprocess.Popen')
+    def test_run_git_stderr(self, mock_process):
+        mock_process.return_value.communicate = Mock(return_value=('', 'error'))
+
+        with self.assertRaises(guilt.GitError):
+            self.runner._run_git(['log'])
+
+    @patch('guilt.subprocess.Popen')
     def test_run_git(self, mock_process):
         mock_process.return_value.communicate = Mock(return_value=('a\nb\nc', None))
 
