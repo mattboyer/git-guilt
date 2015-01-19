@@ -256,9 +256,6 @@ class PyGuilt(object):
         )
 
         self.loc_deltas.sort()
-        # TODO
-        # We need to handle the case where >1 author has the same guilt - we
-        # expect these to be sorted lexicographically
         return self.loc_deltas
 
     def show_guilt_stats(self):
