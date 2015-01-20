@@ -121,18 +121,16 @@ class Delta(object):
             count=self.count
         )
 
-    def __str__(self):
-        display_count = str(self.count)
-
+    def format(self, max_author_len, max_count_len):
         pluses = str()
         if self.count < 0:
             pluses = '-' * -self.count
         elif self.count > 0:
             pluses = '+' * self.count
 
-        return "{author} [{count}]: {pluses}".format(
-            author=self.author,
-            count=display_count,
+        return " {author} | {count} {pluses}".format(
+            author=self.author.ljust(max_author_len),
+            count=str(self.count).rjust(max_count_len),
             pluses=pluses,
         )
 
@@ -254,9 +252,18 @@ class PyGuilt(object):
     def show_guilt_stats(self):
         # TODO Do something like diffstat's number of files changed, number or
         # insertions and number of deletions
+        longest_name = len(max(
+            self.loc_deltas,
+            key=lambda d: len(d.author)
+        ).author)
+
+        longest_delta = len(str(max(
+            self.loc_deltas,
+            key=lambda d: len(str(d.count))
+        ).count))
+
         for delta in self.loc_deltas:
-            print(str(delta))
-        print("{0} files changed".format(len(self.files)))
+            print(delta.format(longest_name, longest_delta))
 
     def run(self):
         try:
