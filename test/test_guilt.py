@@ -77,15 +77,6 @@ class DeltaTestCase(TestCase):
         self.assertEquals("<Delta \"Gamma\": 0>", repr(c))
 
 
-    def test_str(self):
-        a = guilt.Delta('Alpha', -4)
-        b = guilt.Delta('Beta', 6)
-        c = guilt.Delta('Gamma', 0)
-
-        self.assertEquals("Alpha [-4]: ----", str(a))
-        self.assertEquals("Beta [6]: ++++++", str(b))
-        self.assertEquals("Gamma [0]: ", str(c))
-
 class ArgTestCase(TestCase):
 
     def setUp(self):
@@ -211,12 +202,14 @@ class GitRunnerTestCase(TestCase):
             blame.bucket
         )
 
+    @patch('sys.stderr', new_callable=io.StringIO)
     @patch('guilt.subprocess.Popen')
-    def test_get_git_root_exception(self, mock_process):
+    def test_get_git_root_exception(self, mock_process, mock_stderr):
         mock_process.return_value.communicate = Mock(side_effect=OSError)
 
         with self.assertRaises(SystemExit):
             new_runner = guilt.GitRunner()
+        self.assertEquals("Couldn't run git: ", mock_stderr.getvalue())
 
 
 class GuiltTestCase(TestCase):
@@ -274,19 +267,6 @@ class GuiltTestCase(TestCase):
             deltas
         )
 
-    @patch('sys.stdout', new_callable=io.StringIO)
-    def test_show_guilt(self, mock_stdout):
-        self.guilt.loc_deltas = [guilt.Delta('foo', 15)]
-        self.guilt.files = ['a', 'b']
-
-        self.guilt.show_guilt_stats()
-        self.assertEquals('''
-foo [15]: +++++++++++++++
-2 files changed
-'''.lstrip(),
-            mock_stdout.getvalue()
-        )
-
     # Many more testcases are required!!
     @patch('guilt.PyGuilt.show_guilt_stats')
     @patch('guilt.PyGuilt.reduce_blames')
@@ -300,3 +280,17 @@ foo [15]: +++++++++++++++
         mock_map.assert_called_once_with()
         mock_reduce.assert_called_once_with()
         mock_show.assert_called_once_with()
+
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_show_guilt(self, mock_stdout):
+        #self.guilt.files = ['a', 'b']
+        self.guilt.loc_deltas.append(guilt.Delta('short', 15))
+        self.guilt.loc_deltas.append(guilt.Delta('Very Long Name', -3))
+
+        self.guilt.show_guilt_stats()
+        self.assertEquals(''' short          | 15 +++++++++++++++
+ Very Long Name | -3 ---
+''',
+            mock_stdout.getvalue()
+        )
+
