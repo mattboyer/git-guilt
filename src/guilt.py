@@ -110,6 +110,10 @@ class BlameTicket(object):
 
 
 class Delta(object):
+    _CSI = r'['
+    _green = _CSI + '32m'
+    _red = _CSI + '31m'
+    _normal = _CSI + '0m'
 
     def __init__(self, author, count):
         self.author = author
@@ -124,9 +128,9 @@ class Delta(object):
     def format(self, max_author_len, max_count_len):
         pluses = str()
         if self.count < 0:
-            pluses = '-' * -self.count
+            pluses = Delta._red + '-' * -self.count + Delta._normal
         elif self.count > 0:
-            pluses = '+' * self.count
+            pluses = Delta._green + '+' * self.count + Delta._normal
 
         return " {author} | {count} {pluses}".format(
             author=self.author.ljust(max_author_len),
