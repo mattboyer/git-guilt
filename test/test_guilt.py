@@ -288,8 +288,8 @@ class GuiltTestCase(TestCase):
         self.guilt.loc_deltas.append(guilt.Delta('Very Long Name', -3))
 
         self.guilt.show_guilt_stats()
-        self.assertEquals(''' short          | 15 +++++++++++++++
- Very Long Name | -3 ---
+        self.assertEquals(''' short          | 15 [32m+++++++++++++++[0m
+ Very Long Name | -3 [31m---[0m
 ''',
             mock_stdout.getvalue()
         )
