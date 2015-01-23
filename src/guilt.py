@@ -83,10 +83,20 @@ class GitRunner(object):
         return set(file_list)
 
     def blame_locs(self, blame):
+        # blame.repo_path may not exist for this particular revision
+        # So what do we do then? if the file existed before, then surely all
+        # LOCs should be subtracted from their authors' share of guilt
+        # If, on the other hand, the file has *never* existed, then it's all
+        # good.
+        # Either way, that will be handled by the reducer
         blame_args = ['blame', '--', blame.repo_path]
         if blame.rev:
             blame_args.append(blame.rev)
-        lines = self._run_git(blame_args)
+        try:
+            lines = self._run_git(blame_args)
+        except GitError as ge:
+            pass
+
         # TODO For now default to extracting names
         for line in lines:
             matches = self.name_regex.match(line)
