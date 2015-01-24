@@ -41,7 +41,6 @@ class GitRunner(object):
         lines produced on its standard output.
         '''
 
-        print(args)
         popen_kwargs = {
             'stdout': subprocess.PIPE,
             'stderr': subprocess.PIPE,
@@ -139,17 +138,17 @@ class Delta(object):
     _red = _CSI + '31m'
     _normal = _CSI + '0m'
 
-    def __init__(self, author, adds, dels):
+    def __init__(self, author, since, until):
         self.author = author
-        self.until_locs = adds
-        self.since_locs = dels
+        self.since_locs = since
+        self.until_locs = until
 
     def __repr__(self):
-        return "<Delta \"{author}\": {count} ({a}-{d})>".format(
+        return "<Delta \"{author}\": {count} ({since}->{until})>".format(
             author=self.author,
             count=self.count,
-            a=self.until_locs,
-            d=self.since_locs,
+            since=self.since_locs,
+            until=self.until_locs,
         )
 
     @property
@@ -230,9 +229,6 @@ class PyGuilt(object):
 
         self.trees = dict()
 
-        # TODO Do we still need this?
-        self.files = list()
-
     def process_args(self):
         self.args = self.parser.parse_args()
         if not (self.args.since and self.args.until):
@@ -252,7 +248,6 @@ class PyGuilt(object):
         for repo_path in self.runner.get_delta_files(
                 self.args.since, self.args.until
                 ):
-            self.files.append(repo_path)
 
             self.blame_queue.append(
                 BlameTicket(self.since, repo_path, self.args.since)
@@ -271,14 +266,14 @@ class PyGuilt(object):
         author, loc_count = since_blame
         until_loc_count = self.until[author] or 0
         # LOC counts are always >=0
-        deltas.append(Delta(author, until_loc_count, loc_count))
+        deltas.append(Delta(author, loc_count, until_loc_count))
         return deltas
 
     def _reduce_until_blame(self, deltas, until_blame):
         author, loc_count = until_blame
         if author not in self.since:
             # We have a new author
-            deltas.append(Delta(author, loc_count, 0))
+            deltas.append(Delta(author, 0, loc_count))
         else:
             # TODO We may need to write off some guilt
             pass

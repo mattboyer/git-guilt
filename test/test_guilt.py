@@ -30,7 +30,7 @@ class DeltaTestCase(TestCase):
         a = guilt.Delta('Alpha', 4, 0)
 
         # a > b because a is guiltier than b
-        b = guilt.Delta('Beta', -6, 0)
+        b = guilt.Delta('Beta', 6, 0)
 
         # Test __lt__ and __le__
         self.assertTrue(a < b)
@@ -70,11 +70,11 @@ class DeltaTestCase(TestCase):
     def test_repr(self):
         a = guilt.Delta('Alpha', 0, 4)
         b = guilt.Delta('Beta', 16, 10)
-        c = guilt.Delta('Gamma', 0, 0)
+        c = guilt.Delta('Gamma', 8, 8)
 
-        self.assertEquals("<Delta \"Alpha\": -4>", repr(a))
-        self.assertEquals("<Delta \"Beta\": 6>", repr(b))
-        self.assertEquals("<Delta \"Gamma\": 0>", repr(c))
+        self.assertEquals("<Delta \"Alpha\": 4 (0->4)>", repr(a))
+        self.assertEquals("<Delta \"Beta\": -6 (16->10)>", repr(b))
+        self.assertEquals("<Delta \"Gamma\": 0 (8->8)>", repr(c))
 
 
 class ArgTestCase(TestCase):
@@ -234,6 +234,9 @@ class GuiltTestCase(TestCase):
         mock_get_delta.return_value = ['foo.c', 'foo.h']
         self.guilt.args = Mock(since='HEAD~4', until='HEAD~1')
 
+        self.guilt.trees['HEAD~4'] = ['foo.c', 'foo.h']
+        self.guilt.trees['HEAD~1'] = ['foo.c', 'foo.h']
+
         self.guilt.map_blames()
         self.assertEquals(4, len(self.guilt.blame_queue))
         self.assertEquals(
@@ -253,11 +256,11 @@ class GuiltTestCase(TestCase):
         self.guilt.until = {'Alice': 6, 'Bob': 6, 'Carol': 2, 'Dave': 1, 'Ellen': 2}
 
         expected_deltas = [
-                guilt.Delta(count=3, author='Bob'),
-                guilt.Delta(count=2, author='Ellen'),
-                guilt.Delta(count=1, author='Alice'),
-                guilt.Delta(count=1, author='Dave'),
-                guilt.Delta(count=-2, author='Carol'),
+                guilt.Delta(until=6, since=3, author='Bob'),
+                guilt.Delta(until=2, since=0, author='Ellen'),
+                guilt.Delta(until=6, since=5, author='Alice'),
+                guilt.Delta(until=1, since=0, author='Dave'),
+                guilt.Delta(until=2, since=4, author='Carol'),
                 ]
 
         deltas = self.guilt.reduce_blames()
@@ -276,6 +279,9 @@ class GuiltTestCase(TestCase):
         self.guilt.args = Mock()
         self.guilt.args.since = 'since'
         self.guilt.args.until = 'until'
+
+        self.guilt.trees['since'] = ['in_since_and_until']
+        self.guilt.trees['until'] = ['in_since_and_until', 'not_in_since']
 
         def mock_blame_logic(blame):
             #assert False, blame
@@ -312,7 +318,7 @@ class GuiltTestCase(TestCase):
         # (spread across different files)
         # Carol's share of the collective guilt has increased from 0 in the
         # since rev to 2 LOCs
-        expected_guilt = [guilt.Delta('Alice', 38, 12), guilt.Delta('Bob', 7, 1), guilt.Delta('Carol', 2, 0)]
+        expected_guilt = [guilt.Delta('Alice', 12, 38), guilt.Delta('Bob', 8, 7), guilt.Delta('Carol', 0, 2), guilt.Delta('Dave', 4, 0)]
         expected_guilt.sort()
 
         self.assertEquals(expected_guilt, self.guilt.loc_deltas)
@@ -326,6 +332,9 @@ class GuiltTestCase(TestCase):
         self.guilt.args = Mock()
         self.guilt.args.since = 'since'
         self.guilt.args.until = 'until'
+
+        self.guilt.trees['since'] = ['in_since_and_until', 'not_in_until']
+        self.guilt.trees['until'] = ['in_since_and_until']
 
         def mock_blame_logic(blame):
             #assert False, blame
@@ -358,21 +367,27 @@ class GuiltTestCase(TestCase):
         # LOCs
         # Bob's share of the collective guilt has been wiped clean!
         # Carol's share has increased from nothing to 2
-        expected_guilt = [guilt.Delta('Alice', -14), guilt.Delta('Bob', 0), guilt.Delta('Carol', 2)]
+        expected_guilt = [
+                guilt.Delta('Alice', 32, 18),
+                guilt.Delta('Bob', 5, 0),
+                guilt.Delta('Carol', 0, 2)
+            ]
         expected_guilt.sort()
 
         self.assertEquals(expected_guilt, self.guilt.loc_deltas)
 
     # Many more testcases are required!!
+    @patch('guilt.PyGuilt.populate_trees')
     @patch('guilt.PyGuilt.show_guilt_stats')
     @patch('guilt.PyGuilt.reduce_blames')
     @patch('guilt.PyGuilt.map_blames')
     @patch('guilt.PyGuilt.process_args')
     @patch('sys.stdout', new_callable=io.StringIO)
-    def test_show_run(self, mock_stdout, mock_process_args, mock_map, mock_reduce, mock_show):
+    def test_show_run(self, mock_stdout, mock_process_args, mock_map, mock_reduce, mock_show, mock_pop_trees):
 
         self.assertEquals(0, self.guilt.run())
         mock_process_args.assert_called_once_with()
+        mock_pop_trees.assert_called_once_with()
         mock_map.assert_called_once_with()
         mock_reduce.assert_called_once_with()
         mock_show.assert_called_once_with()
@@ -380,12 +395,12 @@ class GuiltTestCase(TestCase):
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_show_guilt(self, mock_stdout):
         #self.guilt.files = ['a', 'b']
-        self.guilt.loc_deltas.append(guilt.Delta('short', 15))
-        self.guilt.loc_deltas.append(guilt.Delta('Very Long Name', -3))
+        self.guilt.loc_deltas.append(guilt.Delta('short', 30, 45))
+        self.guilt.loc_deltas.append(guilt.Delta('Very Long Name', 10, 7))
 
         self.guilt.show_guilt_stats()
-        self.assertEquals(''' short          | 15 [32m+++++++++++++++[0m
- Very Long Name | -3 [31m---[0m
+        self.assertEquals(''' short          | 15 [32m+++++++++++++++[0m (30->45)
+ Very Long Name | -3 [31m---[0m (10->7)
 ''',
             mock_stdout.getvalue()
         )
