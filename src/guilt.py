@@ -84,19 +84,13 @@ class GitRunner(object):
         return set(file_list)
 
     def _populate_tree(self, rev):
-        file_list = list()
-        ls_tree_args = ['ls-tree', '-r', '--', rev]
+        ls_tree_args = ['ls-tree', '-r', '--name-only', '--', rev]
         try:
             lines = self._run_git(ls_tree_args)
         except GitError as ge:
             raise ge
 
-        for line in lines:
-            tokens = line.split()
-            # What if we have whitespace in the file name?
-            file_list.append(tokens[-1])
-
-        return file_list
+        return lines
 
     def blame_locs(self, blame):
         # blame.repo_path may not exist for this particular revision
