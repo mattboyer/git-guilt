@@ -11,26 +11,26 @@ guilt.GitRunner._git_executable = 'nosuchgit'
 class DeltaTestCase(TestCase):
 
     def test_eq(self):
-        a = guilt.Delta('Alpha', 4)
-        b = guilt.Delta('Beta', 6)
+        a = guilt.Delta('Alpha', 4, 0)
+        b = guilt.Delta('Beta', 6, 0)
         self.assertFalse(a == b)
         self.assertTrue(a != b)
 
-        b = guilt.Delta('Alpha', 6)
+        b = guilt.Delta('Alpha', 6, 0)
         self.assertFalse(a == b)
         self.assertTrue(a != b)
 
-        b = guilt.Delta('Alpha', 4)
+        b = guilt.Delta('Alpha', 4, 0)
         self.assertTrue(a == b)
         self.assertTrue(a <= b)
         self.assertTrue(a >= b)
         self.assertFalse(a != b)
 
     def test_comparison(self):
-        a = guilt.Delta('Alpha', 4)
+        a = guilt.Delta('Alpha', 4, 0)
 
         # a > b because a is guiltier than b
-        b = guilt.Delta('Beta', -6)
+        b = guilt.Delta('Beta', -6, 0)
 
         # Test __lt__ and __le__
         self.assertTrue(a < b)
@@ -46,7 +46,7 @@ class DeltaTestCase(TestCase):
 
         # a and b are equally guilty, but a comes before b in a lexicographic
         # sort
-        b = guilt.Delta('Beta', 4)
+        b = guilt.Delta('Beta', 4, 0)
 
         # Test __lt__ and __le__
         self.assertTrue(a < b)
@@ -60,7 +60,7 @@ class DeltaTestCase(TestCase):
         self.assertTrue(b > a)
         self.assertTrue(b >= a)
 
-        b = guilt.Delta('Aardvark', 4)
+        b = guilt.Delta('Aardvark', 4, 0)
         self.assertFalse(a < b)
         self.assertFalse(a <= b)
 
@@ -68,9 +68,9 @@ class DeltaTestCase(TestCase):
         self.assertTrue(a >= b)
 
     def test_repr(self):
-        a = guilt.Delta('Alpha', -4)
-        b = guilt.Delta('Beta', 6)
-        c = guilt.Delta('Gamma', 0)
+        a = guilt.Delta('Alpha', 0, 4)
+        b = guilt.Delta('Beta', 16, 10)
+        c = guilt.Delta('Gamma', 0, 0)
 
         self.assertEquals("<Delta \"Alpha\": -4>", repr(a))
         self.assertEquals("<Delta \"Beta\": 6>", repr(b))
@@ -266,6 +266,102 @@ class GuiltTestCase(TestCase):
             expected_deltas,
             deltas
         )
+
+    @patch('guilt.GitRunner.blame_locs')
+    @patch('guilt.GitRunner.get_delta_files')
+    def test_file_not_in_since_rev(self, mock_get_files, mock_blame):
+        mock_get_files.return_value = set(['in_since_and_until', 'not_in_since'])
+
+        # Mock up arg namespace
+        self.guilt.args = Mock()
+        self.guilt.args.since = 'since'
+        self.guilt.args.until = 'until'
+
+        def mock_blame_logic(blame):
+            #assert False, blame
+            if 'not_in_since' == blame.repo_path:
+                if 'since' == blame.rev:
+                    blame.exists = False
+                elif 'until' == blame.rev:
+                    blame.exists = True
+                    blame.bucket['Alice'] += 20
+                    blame.bucket['Bob'] += 5
+            elif 'in_since_and_until' == blame.repo_path:
+                blame.exists = True
+                if 'since' == blame.rev:
+                    blame.bucket['Alice'] += 12
+                    blame.bucket['Bob'] += 8
+                    blame.bucket['Dave'] += 4
+                elif 'until' == blame.rev:
+                    blame.exists = True
+                    blame.bucket['Alice'] += 18
+                    blame.bucket['Bob'] += 2
+                    blame.bucket['Carol'] += 2
+
+        mock_blame.side_effect = mock_blame_logic
+
+        self.guilt.map_blames()
+        self.assertEquals({'Alice': 12, 'Bob': 8, 'Dave': 4}, self.guilt.since)
+        self.assertEquals({'Alice': 38, 'Bob': 7, 'Carol': 2}, self.guilt.until)
+
+        self.guilt.reduce_blames()
+
+        # Alice's share of the collective guilt has increased from 12 LOCs in
+        # the since rev to 38 LOCs
+        # Bob's share of the collective guilt has decreased from 8 to 7 LOCs
+        # (spread across different files)
+        # Carol's share of the collective guilt has increased from 0 in the
+        # since rev to 2 LOCs
+        expected_guilt = [guilt.Delta('Alice', 38, 12), guilt.Delta('Bob', 7, 1), guilt.Delta('Carol', 2, 0)]
+        expected_guilt.sort()
+
+        self.assertEquals(expected_guilt, self.guilt.loc_deltas)
+
+    @patch('guilt.GitRunner.blame_locs')
+    @patch('guilt.GitRunner.get_delta_files')
+    def test_file_not_in_until_rev(self, mock_get_files, mock_blame):
+        mock_get_files.return_value = set(['in_since_and_until', 'not_in_until'])
+
+        # Mock up arg namespace
+        self.guilt.args = Mock()
+        self.guilt.args.since = 'since'
+        self.guilt.args.until = 'until'
+
+        def mock_blame_logic(blame):
+            #assert False, blame
+            if 'not_in_until' == blame.repo_path:
+                if 'since' == blame.rev:
+                    blame.exists = True
+                    blame.bucket['Alice'] += 20
+                    blame.bucket['Bob'] += 5
+                elif 'until' == blame.rev:
+                    blame.exists = False
+
+            elif 'in_since_and_until' == blame.repo_path:
+                blame.exists = True
+                if 'since' == blame.rev:
+                    blame.bucket['Alice'] += 12
+                elif 'until' == blame.rev:
+                    blame.exists = True
+                    blame.bucket['Alice'] += 18
+                    blame.bucket['Carol'] += 2
+
+        mock_blame.side_effect = mock_blame_logic
+
+        self.guilt.map_blames()
+        self.assertEquals({'Alice': 32, 'Bob': 5}, self.guilt.since)
+        self.assertEquals({'Alice': 18, 'Carol': 2}, self.guilt.until)
+
+        self.guilt.reduce_blames()
+
+        # Alice's share of the collective guilt has decreased from 32 to 18
+        # LOCs
+        # Bob's share of the collective guilt has been wiped clean!
+        # Carol's share has increased from nothing to 2
+        expected_guilt = [guilt.Delta('Alice', -14), guilt.Delta('Bob', 0), guilt.Delta('Carol', 2)]
+        expected_guilt.sort()
+
+        self.assertEquals(expected_guilt, self.guilt.loc_deltas)
 
     # Many more testcases are required!!
     @patch('guilt.PyGuilt.show_guilt_stats')

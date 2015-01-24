@@ -41,6 +41,7 @@ class GitRunner(object):
         lines produced on its standard output.
         '''
 
+        print(args)
         popen_kwargs = {
             'stdout': subprocess.PIPE,
             'stderr': subprocess.PIPE,
@@ -82,6 +83,21 @@ class GitRunner(object):
             raise ValueError()
         return set(file_list)
 
+    def _populate_tree(self, rev):
+        file_list = list()
+        ls_tree_args = ['ls-tree', '-r', '--', rev]
+        try:
+            lines = self._run_git(ls_tree_args)
+        except GitError as ge:
+            raise ge
+
+        for line in lines:
+            tokens = line.split()
+            # What if we have whitespace in the file name?
+            file_list.append(tokens[-1])
+
+        return file_list
+
     def blame_locs(self, blame):
         # blame.repo_path may not exist for this particular revision
         # So what do we do then? if the file existed before, then surely all
@@ -92,6 +108,7 @@ class GitRunner(object):
         blame_args = ['blame', '--', blame.repo_path]
         if blame.rev:
             blame_args.append(blame.rev)
+
         try:
             lines = self._run_git(blame_args)
         except GitError as ge:
@@ -131,27 +148,39 @@ class Delta(object):
     _red = _CSI + '31m'
     _normal = _CSI + '0m'
 
-    def __init__(self, author, count):
+    def __init__(self, author, adds, dels):
         self.author = author
-        self.count = count
+        self.until_locs = adds
+        self.since_locs = dels
+        # We should probably keep track of until_locs and since_locs separately?
 
     def __repr__(self):
-        return "<Delta \"{author}\": {count}>".format(
+        return "<Delta \"{author}\": {count} ({a}-{d})>".format(
             author=self.author,
-            count=self.count
+            count=self.count,
+            a=self.until_locs,
+            d=self.since_locs,
         )
 
-    def format(self, max_author_len, max_count_len):
-        pluses = str()
-        if self.count < 0:
-            pluses = Delta._red + '-' * -self.count + Delta._normal
-        elif self.count > 0:
-            pluses = Delta._green + '+' * self.count + Delta._normal
+    @property
+    def count(self):
+        return self.until_locs - self.since_locs
 
-        return " {author} | {count} {pluses}".format(
+    def format(self, max_author_len, max_count_len, show_base=False):
+        bargraph = str()
+        if show_base:
+            bargraph += '=' * self.since_locs
+
+        if self.count > 0:
+            bargraph += Delta._green + '+' * (self.until_locs - self.since_locs) + Delta._normal
+        elif self.count < 0:
+            bargraph += Delta._red + '-' * (self.since_locs - self.until_locs) + Delta._normal
+
+        return " {author} | {count} {bargraph} ({wtf})".format(
             author=self.author.ljust(max_author_len),
             count=str(self.count).rjust(max_count_len),
-            pluses=pluses,
+            bargraph=bargraph,
+            wtf=str(self.since_locs) + '->' + str(self.until_locs),
         )
 
     def __eq__(self, rhs):
@@ -210,12 +239,20 @@ class PyGuilt(object):
         self.since = collections.defaultdict(int)
         self.until = collections.defaultdict(int)
         self.loc_deltas = list()
+
+        self.trees = dict()
+
+        # TODO Do we still need this?
         self.files = list()
 
     def process_args(self):
         self.args = self.parser.parse_args()
         if not (self.args.since and self.args.until):
             raise GitError('bad args')
+
+    def populate_trees(self):
+        self.trees[self.args.since] = self.runner._populate_tree(self.args.since)
+        self.trees[self.args.until] = self.runner._populate_tree(self.args.until)
 
     def map_blames(self):
         """Prepares the list of blames to tabulate"""
@@ -235,22 +272,27 @@ class PyGuilt(object):
 
         # TODO This should be made parallel
         for blame in self.blame_queue:
-            self.runner.blame_locs(blame)
+            if blame.repo_path in self.trees[blame.rev]:
+                blame.exists = True
+                self.runner.blame_locs(blame)
+            else:
+                blame.exists = False
 
-    def _reduce_since_blame(self, deltas, foo):
-        author, loc_count = foo
+    def _reduce_since_blame(self, deltas, since_blame):
+        author, loc_count = since_blame
         until_loc_count = self.until[author] or 0
-        loc_delta = until_loc_count - loc_count
-        if loc_delta != 0:
-            deltas.append(Delta(author, loc_delta))
-
+        # LOC counts are always >=0
+        deltas.append(Delta(author, until_loc_count, loc_count))
         return deltas
 
-    def _reduce_until_blame(self, deltas, foo):
-        author, loc_count = foo
+    def _reduce_until_blame(self, deltas, until_blame):
+        author, loc_count = until_blame
         if author not in self.since:
             # We have a new author
-            deltas.append(Delta(author, loc_count))
+            deltas.append(Delta(author, loc_count, 0))
+        else:
+            # TODO We may need to write off some guilt
+            pass
         return deltas
 
     def reduce_blames(self):
@@ -292,6 +334,8 @@ class PyGuilt(object):
             sys.stderr.write(str(ex))
             return 1
         else:
+            self.populate_trees()
+
             self.map_blames()
             self.reduce_blames()
             self.show_guilt_stats()
