@@ -229,6 +229,19 @@ class GuiltTestCase(TestCase):
     def tearDown(self):
         self._popen_patch.stop()
 
+    @patch('guilt.GitRunner._run_git')
+    def test_populate_trees(self, mock_run_git):
+        self.guilt.args = Mock(since='HEAD~4', until='HEAD~1')
+
+        self.guilt.populate_trees()
+        self.assertEquals(
+            [
+                call(['ls-tree', '-r', '--name-only', '--', 'HEAD~4']),
+                call(['ls-tree', '-r', '--name-only', '--', 'HEAD~1']),
+            ],
+            mock_run_git.mock_calls
+        )
+
     @patch('guilt.GitRunner.get_delta_files')
     def test_map_blames(self, mock_get_delta):
         mock_get_delta.return_value = ['foo.c', 'foo.h']
