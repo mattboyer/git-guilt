@@ -95,9 +95,14 @@ class GitRunner(object):
         try:
             lines = self._run_git(blame_args)
         except GitError as ge:
-            pass
+            if 'no such path ' in str(ge):
+                blame.exists = False
+                return None
+            else:
+                raise ge
 
         # TODO For now default to extracting names
+        blame.exists = True
         for line in lines:
             matches = self.name_regex.match(line)
             if matches:
@@ -112,6 +117,7 @@ class BlameTicket(object):
         self.bucket = bucket
         self.repo_path = path
         self.rev = rev
+        self.exists = None
 
     def __eq__(self, blame):
         return (self.bucket == blame.bucket) \
