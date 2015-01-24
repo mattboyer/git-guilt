@@ -83,7 +83,7 @@ class GitRunner(object):
             raise ValueError()
         return set(file_list)
 
-    def _populate_tree(self, rev):
+    def populate_tree(self, rev):
         ls_tree_args = ['ls-tree', '-r', '--name-only', '--', rev]
         try:
             lines = self._run_git(ls_tree_args)
@@ -107,13 +107,11 @@ class GitRunner(object):
             lines = self._run_git(blame_args)
         except GitError as ge:
             if 'no such path ' in str(ge):
-                blame.exists = False
                 return None
             else:
                 raise ge
 
         # TODO For now default to extracting names
-        blame.exists = True
         for line in lines:
             matches = self.name_regex.match(line)
             if matches:
@@ -128,7 +126,6 @@ class BlameTicket(object):
         self.bucket = bucket
         self.repo_path = path
         self.rev = rev
-        self.exists = None
 
     def __eq__(self, blame):
         return (self.bucket == blame.bucket) \
@@ -146,7 +143,6 @@ class Delta(object):
         self.author = author
         self.until_locs = adds
         self.since_locs = dels
-        # We should probably keep track of until_locs and since_locs separately?
 
     def __repr__(self):
         return "<Delta \"{author}\": {count} ({a}-{d})>".format(
@@ -164,9 +160,9 @@ class Delta(object):
         bargraph = str()
 
         if self.count > 0:
-            bargraph += Delta._green + '+' * (self.until_locs - self.since_locs) + Delta._normal
+            bargraph += Delta._green + '+' * self.count + Delta._normal
         elif self.count < 0:
-            bargraph += Delta._red + '-' * (self.since_locs - self.until_locs) + Delta._normal
+            bargraph += Delta._red + '-' * -self.count + Delta._normal
 
         return " {author} | {count} {bargraph} ({wtf})".format(
             author=self.author.ljust(max_author_len),
@@ -243,8 +239,12 @@ class PyGuilt(object):
             raise GitError('bad args')
 
     def populate_trees(self):
-        self.trees[self.args.since] = self.runner._populate_tree(self.args.since)
-        self.trees[self.args.until] = self.runner._populate_tree(self.args.until)
+        self.trees[self.args.since] = self.runner.populate_tree(
+            self.args.since
+        )
+        self.trees[self.args.until] = self.runner.populate_tree(
+            self.args.until
+        )
 
     def map_blames(self):
         """Prepares the list of blames to tabulate"""
@@ -265,10 +265,7 @@ class PyGuilt(object):
         # TODO This should be made parallel
         for blame in self.blame_queue:
             if blame.repo_path in self.trees[blame.rev]:
-                blame.exists = True
                 self.runner.blame_locs(blame)
-            else:
-                blame.exists = False
 
     def _reduce_since_blame(self, deltas, since_blame):
         author, loc_count = since_blame
