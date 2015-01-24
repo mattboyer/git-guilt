@@ -160,10 +160,8 @@ class Delta(object):
     def count(self):
         return self.until_locs - self.since_locs
 
-    def format(self, max_author_len, max_count_len, show_base=False):
+    def format(self, max_author_len, max_count_len):
         bargraph = str()
-        if show_base:
-            bargraph += '=' * self.since_locs
 
         if self.count > 0:
             bargraph += Delta._green + '+' * (self.until_locs - self.since_locs) + Delta._normal
