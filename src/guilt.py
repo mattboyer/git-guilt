@@ -63,7 +63,10 @@ class GitRunner(object):
         try:
             out, err = git_process.communicate()
         except Exception as e:
-            raise GitError("Couldn't run git: " + str(e))
+            raise GitError("Couldn't run git {args}: {ex}".format(
+                args=args,
+                ex=str(e)
+            ))
 
         if err:
             raise GitError("Git failed with " + err)
