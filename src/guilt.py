@@ -3,6 +3,7 @@ Port of git-guilt to Python
 """
 
 import re
+import os
 import argparse
 import subprocess
 import collections
@@ -132,12 +133,55 @@ class BlameTicket(object):
             and (self.bucket == blame.bucket)
 
 
-class Delta(object):
+class Formatter(object):
     _CSI = r'['
     _green = _CSI + '32m'
     _red = _CSI + '31m'
     _normal = _CSI + '0m'
 
+    def __init__(self, deltas):
+        self.deltas = deltas
+        self._tty = os.isatty(sys.stdout.fileno())
+
+    @property
+    def longest_name(self):
+        return len(max(
+            self.deltas, key=lambda d: len(d.author)
+        ).author)
+
+    @property
+    def longest_count(self):
+        return len(str(max(
+            self.deltas, key=lambda d: len(str(d.count))
+        ).count))
+
+    def show_guilt_stats(self):
+        # TODO Do something like diffstat's number of files changed, number or
+        # insertions and number of deletions
+        for delta in self.deltas:
+            print(self.format(delta))
+
+    def format(self, delta):
+        bargraph = str()
+
+        if delta.count > 0:
+            bargraph = '+' * delta.count
+            if self._tty:
+                bargraph = Formatter._green + bargraph + Formatter._normal
+        elif delta.count < 0:
+            bargraph = '-' * -delta.count
+            if self._tty:
+                bargraph = Formatter._red + bargraph + Formatter._normal
+
+        return " {author} | {count} {bargraph} ({wtf})".format(
+            author=delta.author.ljust(self.longest_name),
+            count=str(delta.count).rjust(self.longest_count),
+            bargraph=bargraph,
+            wtf=str(delta.since_locs) + '->' + str(delta.until_locs),
+        )
+
+
+class Delta(object):
     def __init__(self, author, since, until):
         self.author = author
         self.since_locs = since
@@ -154,21 +198,6 @@ class Delta(object):
     @property
     def count(self):
         return self.until_locs - self.since_locs
-
-    def format(self, max_author_len, max_count_len):
-        bargraph = str()
-
-        if self.count > 0:
-            bargraph += Delta._green + '+' * self.count + Delta._normal
-        elif self.count < 0:
-            bargraph += Delta._red + '-' * -self.count + Delta._normal
-
-        return " {author} | {count} {bargraph} ({wtf})".format(
-            author=self.author.ljust(max_author_len),
-            count=str(self.count).rjust(max_count_len),
-            bargraph=bargraph,
-            wtf=str(self.since_locs) + '->' + str(self.until_locs),
-        )
 
     def __eq__(self, rhs):
         return (self.author == rhs.author) \
@@ -228,6 +257,7 @@ class PyGuilt(object):
         self.loc_deltas = list()
 
         self.trees = dict()
+        self.formatter = Formatter(self.loc_deltas)
 
     def process_args(self):
         self.args = self.parser.parse_args()
@@ -295,22 +325,6 @@ class PyGuilt(object):
         self.loc_deltas.sort()
         return self.loc_deltas
 
-    def show_guilt_stats(self):
-        # TODO Do something like diffstat's number of files changed, number or
-        # insertions and number of deletions
-        longest_name = len(max(
-            self.loc_deltas,
-            key=lambda d: len(d.author)
-        ).author)
-
-        longest_delta = len(str(max(
-            self.loc_deltas,
-            key=lambda d: len(str(d.count))
-        ).count))
-
-        for delta in self.loc_deltas:
-            print(delta.format(longest_name, longest_delta))
-
     def run(self):
         try:
             self.process_args()
@@ -322,7 +336,7 @@ class PyGuilt(object):
 
             self.map_blames()
             self.reduce_blames()
-            self.show_guilt_stats()
+            self.formatter.show_guilt_stats()
             return 0
 
 if '__main__' == __name__:
