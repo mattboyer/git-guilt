@@ -377,8 +377,12 @@ class PyGuilt(object):
                 TextBlameTicket(self.until, repo_path, self.args.until)
             )
 
-        for repo_path in binary_files:
-            # TOOD Create a sensible Ticket class for binary files
+        for repo_path in sorted(binary_files):
+            # TODO Create a sensible Ticket class for binary files
+            # How should we measure blame in binary files? There are no lines,
+            # so bytes would be the next most natural unit of blame
+            # Ah, but then how do we associate each and every byte in a file to
+            # its most recent author?
             pass
 
         # TODO This should be made parallel
