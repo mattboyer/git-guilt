@@ -3,11 +3,16 @@ Port of git-guilt to Python
 """
 
 import re
+import os
 import argparse
 import subprocess
 import collections
 import functools
 import sys
+# Terminal stuff
+import fcntl
+import termios
+import struct
 
 
 class GitError(Exception):
@@ -57,11 +62,20 @@ class GitRunner(object):
 
         try:
             out, err = git_process.communicate()
+            git_process.wait()
         except Exception as e:
-            raise GitError("Couldn't run git: " + str(e))
+            raise GitError("Couldn't run 'git {args}':{newline}{ex}".format(
+                args=' '.join(args),
+                newline=os.linesep,
+                ex=str(e)
+            ))
 
-        if err:
-            raise GitError("Git failed with " + err)
+        if (0 != git_process.returncode) or err:
+            raise GitError("'git {args}' failed with:{newline}{err}".format(
+                args=' '.join(args),
+                newline=os.linesep,
+                err=err
+            ))
 
         if not out:
             raise ValueError("No output")
@@ -132,12 +146,103 @@ class BlameTicket(object):
             and (self.bucket == blame.bucket)
 
 
-class Delta(object):
+class Formatter(object):
     _CSI = r'['
     _green = _CSI + '32m'
     _red = _CSI + '31m'
     _normal = _CSI + '0m'
+    _default_width = 80
 
+    def __init__(self, deltas):
+        self.deltas = deltas
+        self._is_tty = os.isatty(sys.stdout.fileno())
+        self._tty_width = self._get_tty_width()
+
+    @property
+    def longest_name(self):
+        return len(max(
+            self.deltas, key=lambda d: len(d.author)
+        ).author)
+
+    @property
+    def longest_count(self):
+        return len(str(max(
+            self.deltas, key=lambda d: len(str(d.count))
+        ).count))
+
+    @property
+    def longest_bargraph(self):
+        return abs(max(
+            self.deltas, key=lambda d: abs(d.count)
+        ).count)
+
+    @property
+    def bargraph_max_width(self):
+        return self._tty_width - (5 + self.longest_name + self.longest_count)
+
+    def _get_tty_width(self):
+        if not self._is_tty:
+            return Formatter._default_width
+
+        try:
+            (_, w, _, _) = struct.unpack(
+                'HHHH',
+                fcntl.ioctl(
+                    sys.stdout.fileno(),
+                    termios.TIOCGWINSZ,
+                    struct.pack('HHHH', 0, 0, 0, 0)
+                )
+            )
+        except IOError as e:
+            sys.stderr.write(str(e))
+            return Formatter._default_width
+
+        if 0 < w:
+            return w
+        else:
+            return Formatter._default_width
+
+    def show_guilt_stats(self):
+        # TODO Do something like diffstat's number of files changed, number or
+        # insertions and number of deletions
+        for delta in self.deltas:
+            print(self.format(delta))
+
+    def _scale_bargraph(self, graph_width):
+        if 0 == graph_width:
+            return 0
+
+        if self.longest_bargraph <= self.bargraph_max_width:
+            return graph_width
+
+        scaled_width = 1 + \
+            int(graph_width * (self.bargraph_max_width - 1) /
+                self.longest_bargraph)
+
+        return scaled_width
+
+    def format(self, delta):
+        bargraph = str()
+
+        graph_width = self._scale_bargraph(abs(delta.count))
+
+        if delta.count > 0:
+            bargraph = '+' * graph_width
+            if self._is_tty:
+                bargraph = Formatter._green + bargraph + Formatter._normal
+        elif delta.count < 0:
+            bargraph = '-' * graph_width
+            if self._is_tty:
+                bargraph = Formatter._red + bargraph + Formatter._normal
+
+        return " {author} | {count} {bargraph}".format(
+            author=delta.author.ljust(self.longest_name),
+            count=str(delta.count).rjust(self.longest_count),
+            bargraph=bargraph,
+        )
+
+
+class Delta(object):
     def __init__(self, author, since, until):
         self.author = author
         self.since_locs = since
@@ -154,21 +259,6 @@ class Delta(object):
     @property
     def count(self):
         return self.until_locs - self.since_locs
-
-    def format(self, max_author_len, max_count_len):
-        bargraph = str()
-
-        if self.count > 0:
-            bargraph += Delta._green + '+' * self.count + Delta._normal
-        elif self.count < 0:
-            bargraph += Delta._red + '-' * -self.count + Delta._normal
-
-        return " {author} | {count} {bargraph} ({wtf})".format(
-            author=self.author.ljust(max_author_len),
-            count=str(self.count).rjust(max_count_len),
-            bargraph=bargraph,
-            wtf=str(self.since_locs) + '->' + str(self.until_locs),
-        )
 
     def __eq__(self, rhs):
         return (self.author == rhs.author) \
@@ -228,6 +318,7 @@ class PyGuilt(object):
         self.loc_deltas = list()
 
         self.trees = dict()
+        self.formatter = Formatter(self.loc_deltas)
 
     def process_args(self):
         self.args = self.parser.parse_args()
@@ -295,22 +386,6 @@ class PyGuilt(object):
         self.loc_deltas.sort()
         return self.loc_deltas
 
-    def show_guilt_stats(self):
-        # TODO Do something like diffstat's number of files changed, number or
-        # insertions and number of deletions
-        longest_name = len(max(
-            self.loc_deltas,
-            key=lambda d: len(d.author)
-        ).author)
-
-        longest_delta = len(str(max(
-            self.loc_deltas,
-            key=lambda d: len(str(d.count))
-        ).count))
-
-        for delta in self.loc_deltas:
-            print(delta.format(longest_name, longest_delta))
-
     def run(self):
         try:
             self.process_args()
@@ -322,7 +397,7 @@ class PyGuilt(object):
 
             self.map_blames()
             self.reduce_blames()
-            self.show_guilt_stats()
+            self.formatter.show_guilt_stats()
             return 0
 
 if '__main__' == __name__:

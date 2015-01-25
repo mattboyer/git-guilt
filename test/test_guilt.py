@@ -86,13 +86,28 @@ class ArgTestCase(TestCase):
         self._popen_patch = patch('guilt.subprocess.Popen')
         self.mocked_popen = self._popen_patch.start()
         self.mocked_popen.return_value = Mock(
-            communicate=Mock(return_value=('bar', None))
+            communicate=Mock(return_value=('bar', None)),
+            returncode=0,
         )
+
+        # Mock stdout.fileno()
+        self._stdout_patch = patch('guilt.sys.stdout')
+        self.mocked_stdout = self._stdout_patch.start()
+        self.mocked_stdout.return_value = Mock(
+            fileno=Mock(return_value=1),
+        )
+
+        # ...as well as os.isatty
+        self._isatty_patch = patch('guilt.os.isatty')
+        self.mocked_isatty = self._isatty_patch.start()
+        self.mocked_isatty.return_value = False
 
         self.guilt = guilt.PyGuilt()
 
     def tearDown(self):
         self._popen_patch.stop()
+        self._stdout_patch.stop()
+        self._isatty_patch.stop()
 
     @patch('sys.argv', ['arg0', 'foo'])
     @patch('sys.stderr', new_callable=io.StringIO)
@@ -122,7 +137,8 @@ class GitRunnerTestCase(TestCase):
         self._popen_patch = patch('guilt.subprocess.Popen')
         self.mocked_popen = self._popen_patch.start()
         self.mocked_popen.return_value = Mock(
-            communicate=Mock(return_value=('bar', None))
+            communicate=Mock(return_value=('bar', None)),
+            returncode=0,
         )
 
         self.runner = guilt.GitRunner()
@@ -134,6 +150,9 @@ class GitRunnerTestCase(TestCase):
     @patch('guilt.subprocess.Popen')
     def test_run_git_cwd(self, mock_process):
         mock_process.return_value.communicate = Mock(return_value=('bar', None))
+        mock_process.return_value.returncode = 0
+        mock_process.return_value.wait = \
+                Mock(return_value=None)
 
         self.runner._git_toplevel = None
         self.runner._run_git(['foo'])
@@ -149,7 +168,7 @@ class GitRunnerTestCase(TestCase):
     def test_run_git_no_output(self, mock_process):
         mock_process.return_value.communicate = Mock(return_value=('', None))
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(guilt.GitError):
             self.runner._run_git(['log'])
 
     @patch('guilt.subprocess.Popen')
@@ -168,7 +187,11 @@ class GitRunnerTestCase(TestCase):
 
     @patch('guilt.subprocess.Popen')
     def test_run_git(self, mock_process):
-        mock_process.return_value.communicate = Mock(return_value=('a\nb\nc', None))
+        mock_process.return_value.returncode = 0
+        mock_process.return_value.wait = \
+                Mock(return_value=None)
+        mock_process.return_value.communicate = \
+                Mock(return_value=('a\nb\nc', None))
 
         self.assertEquals(['a', 'b', 'c'], self.runner._run_git(['log']))
 
@@ -209,7 +232,7 @@ class GitRunnerTestCase(TestCase):
 
         with self.assertRaises(SystemExit):
             new_runner = guilt.GitRunner()
-        self.assertEquals("Couldn't run git: ", mock_stderr.getvalue())
+        self.assertEquals("Couldn't run 'git rev-parse --show-toplevel':\n", mock_stderr.getvalue())
 
 
 class GuiltTestCase(TestCase):
@@ -221,13 +244,26 @@ class GuiltTestCase(TestCase):
         self._popen_patch = patch('guilt.subprocess.Popen')
         self.mocked_popen = self._popen_patch.start()
         self.mocked_popen.return_value = Mock(
-            communicate=Mock(return_value=('bar', None))
+            communicate=Mock(return_value=('bar', None)),
+            returncode=0,
         )
+
+        self._stdout_patch = patch('guilt.sys.stdout')
+        self.mocked_stdout = self._stdout_patch.start()
+        self.mocked_stdout.return_value = Mock(
+            fileno=Mock(return_value=1),
+        )
+
+        self._isatty_patch = patch('guilt.os.isatty')
+        self.mocked_isatty = self._isatty_patch.start()
+        self.mocked_isatty.return_value = False
 
         self.guilt = guilt.PyGuilt()
 
     def tearDown(self):
         self._popen_patch.stop()
+        self._stdout_patch.stop()
+        self._isatty_patch.stop()
 
     @patch('guilt.GitRunner._run_git')
     def test_populate_trees(self, mock_run_git):
@@ -261,8 +297,6 @@ class GuiltTestCase(TestCase):
                 ],
                 self.guilt.blame_queue
             )
-
-
 
     def test_reduce_locs(self):
         self.guilt.since = {'Alice': 5, 'Bob': 3, 'Carol': 4}
@@ -391,7 +425,7 @@ class GuiltTestCase(TestCase):
 
     # Many more testcases are required!!
     @patch('guilt.PyGuilt.populate_trees')
-    @patch('guilt.PyGuilt.show_guilt_stats')
+    @patch('guilt.Formatter.show_guilt_stats')
     @patch('guilt.PyGuilt.reduce_blames')
     @patch('guilt.PyGuilt.map_blames')
     @patch('guilt.PyGuilt.process_args')
@@ -405,16 +439,37 @@ class GuiltTestCase(TestCase):
         mock_reduce.assert_called_once_with()
         mock_show.assert_called_once_with()
 
+
+class FormatterTestCase(TestCase):
+
+    def setUp(self):
+        # Mock stdout.fileno()
+        self._stdout_patch = patch('guilt.sys.stdout')
+        self.mocked_stdout = self._stdout_patch.start()
+        self.mocked_stdout.return_value = Mock(
+            fileno=Mock(return_value=1),
+        )
+
+        # ...as well as os.isatty
+        self._isatty_patch = patch('guilt.os.isatty')
+        self.mocked_isatty = self._isatty_patch.start()
+        self.mocked_isatty.return_value = False
+
+        self.formatter = guilt.Formatter([])
+
+    def tearDown(self):
+        self._stdout_patch.stop()
+        self._isatty_patch.stop()
+
     @patch('sys.stdout', new_callable=io.StringIO)
     def test_show_guilt(self, mock_stdout):
-        #self.guilt.files = ['a', 'b']
-        self.guilt.loc_deltas.append(guilt.Delta('short', 30, 45))
-        self.guilt.loc_deltas.append(guilt.Delta('Very Long Name', 10, 7))
+        #self.formatter.files = ['a', 'b']
+        self.formatter.deltas.append(guilt.Delta('short', 30, 45))
+        self.formatter.deltas.append(guilt.Delta('Very Long Name', 10, 7))
 
-        self.guilt.show_guilt_stats()
-        self.assertEquals(''' short          | 15 [32m+++++++++++++++[0m (30->45)
- Very Long Name | -3 [31m---[0m (10->7)
+        self.formatter.show_guilt_stats()
+        self.assertEquals(''' short          | 15 +++++++++++++++
+ Very Long Name | -3 ---
 ''',
             mock_stdout.getvalue()
         )
-
