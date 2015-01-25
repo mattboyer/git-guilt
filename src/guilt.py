@@ -9,6 +9,8 @@ import subprocess
 import collections
 import functools
 import sys
+# Terminal stuff
+import fcntl, termios, struct
 
 
 class GitError(Exception):
@@ -138,10 +140,12 @@ class Formatter(object):
     _green = _CSI + '32m'
     _red = _CSI + '31m'
     _normal = _CSI + '0m'
+    _default_width = 80
 
     def __init__(self, deltas):
         self.deltas = deltas
-        self._tty = os.isatty(sys.stdout.fileno())
+        self._is_tty = os.isatty(sys.stdout.fileno())
+        self._tty_width = self._get_tty_width()
 
     @property
     def longest_name(self):
@@ -155,29 +159,73 @@ class Formatter(object):
             self.deltas, key=lambda d: len(str(d.count))
         ).count))
 
+    @property
+    def longest_bargraph(self):
+        return abs(max(
+            self.deltas, key=lambda d: abs(d.count)
+        ).count)
+
+
+    @property
+    def bargraph_max_width(self):
+        return self._tty_width - (5 + self.longest_name + self.longest_count)
+
+    def _get_tty_width(self):
+        if not self._is_tty:
+            return Formatter._default_width
+
+        try:
+            (h, w, hp, wp) = struct.unpack(
+                'HHHH',
+                fcntl.ioctl(
+                    sys.stdout.fileno(),
+                    termios.TIOCGWINSZ,
+                    struct.pack('HHHH', 0, 0, 0, 0)
+                )
+            )
+        except Exception as e:
+            sys.stderr.write(str(e))
+            return Formatter._default_width
+
+        if 0 < w:
+            return w
+        else:
+            return Formatter._default_width
+
     def show_guilt_stats(self):
         # TODO Do something like diffstat's number of files changed, number or
         # insertions and number of deletions
         for delta in self.deltas:
             print(self.format(delta))
 
+    def _scale_bargraph(self, graph_width):
+        if 0 == graph_width:
+            return 0
+
+        if self.longest_bargraph <= self.bargraph_max_width:
+            return graph_width
+
+        scaled_width = 1 + int(graph_width * (self.bargraph_max_width -1) / self.longest_bargraph)
+        return scaled_width
+
     def format(self, delta):
         bargraph = str()
 
+        graph_width = self._scale_bargraph(abs(delta.count))
+
         if delta.count > 0:
-            bargraph = '+' * delta.count
-            if self._tty:
+            bargraph = '+' * graph_width
+            if self._is_tty:
                 bargraph = Formatter._green + bargraph + Formatter._normal
         elif delta.count < 0:
-            bargraph = '-' * -delta.count
-            if self._tty:
+            bargraph = '-' * graph_width
+            if self._is_tty:
                 bargraph = Formatter._red + bargraph + Formatter._normal
 
-        return " {author} | {count} {bargraph} ({wtf})".format(
+        return " {author} | {count} {bargraph}".format(
             author=delta.author.ljust(self.longest_name),
             count=str(delta.count).rjust(self.longest_count),
             bargraph=bargraph,
-            wtf=str(delta.since_locs) + '->' + str(delta.until_locs),
         )
 
 
