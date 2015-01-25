@@ -400,6 +400,7 @@ class PyGuilt(object):
             self.formatter.show_guilt_stats()
             return 0
 
+
 def main():
     sys.exit(PyGuilt().run())
 
