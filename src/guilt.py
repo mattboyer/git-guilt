@@ -87,23 +87,45 @@ class GitRunner(object):
         until_rev.
         '''
 
-        diff_args = ['diff', '--name-only', since_rev]
+        # We wanna take note of binary files and process them differently
+        text_files = set()
+        binary_files = set()
+
+        diff_args = ['diff', '--numstat', since_rev]
         if until_rev:
             diff_args.append(until_rev)
 
-        file_list = self._run_git(diff_args)
-        if 0 == len(file_list):
+        num_stat_lines = self._run_git(diff_args)
+        if 0 == len(num_stat_lines):
             raise ValueError()
-        return set(file_list)
+
+        for num_stat_line in num_stat_lines:
+            (additions, deletions, file_name) = num_stat_line.split('\t')
+            if ('-', '-') == (additions, deletions):
+                binary_files.add(file_name)
+            else:
+                text_files.add(file_name)
+
+        return (text_files, binary_files)
 
     def populate_tree(self, rev):
-        ls_tree_args = ['ls-tree', '-r', '--name-only', '--', rev]
+        # We need to detect submodules/non-blobs
+        ls_tree_args = ['ls-tree', '-r', '--', rev]
+        paths = set()
+
         try:
             lines = self._run_git(ls_tree_args)
+            for line in lines:
+                _, object_type, _ = line.split('\t')[0].split()
+                path = line.split('\t')[1]
+                if 'blob' != object_type:
+                    continue
+                paths.add(path)
+
         except GitError as ge:
             raise ge
 
-        return lines
+        return paths
 
     def blame_locs(self, blame):
         # blame.repo_path may not exist for this particular revision
@@ -132,13 +154,19 @@ class GitRunner(object):
                 blame.bucket[line_author] += 1
 
 
-class BlameTicket(object):
+class TextBlameTicket(object):
     '''A queued blame. This is a TODO item, really'''
 
     def __init__(self, bucket, path, rev):
         self.bucket = bucket
         self.repo_path = path
         self.rev = rev
+
+    def __repr__(self):
+        return "<TextBlame {rev}:\"{path}\">".format(
+            rev=self.rev,
+            path=self.repo_path,
+        )
 
     def __eq__(self, blame):
         return (self.bucket == blame.bucket) \
@@ -310,7 +338,7 @@ class PyGuilt(object):
         self.parser.add_argument('until', nargs='?')
         self.args = None
 
-        self.blame_queue = list()
+        self.blame_jobs = list()
         # This is a port of the JS blame object. The since and until members
         # are 'buckets'
         self.since = collections.defaultdict(int)
@@ -336,20 +364,25 @@ class PyGuilt(object):
     def map_blames(self):
         """Prepares the list of blames to tabulate"""
 
-        for repo_path in self.runner.get_delta_files(
-                self.args.since, self.args.until
-                ):
+        text_files, binary_files = self.runner.get_delta_files(
+            self.args.since, self.args.until
+        )
 
-            self.blame_queue.append(
-                BlameTicket(self.since, repo_path, self.args.since)
+        for repo_path in sorted(text_files):
+            self.blame_jobs.append(
+                TextBlameTicket(self.since, repo_path, self.args.since)
             )
 
-            self.blame_queue.append(
-                BlameTicket(self.until, repo_path, self.args.until)
+            self.blame_jobs.append(
+                TextBlameTicket(self.until, repo_path, self.args.until)
             )
+
+        for repo_path in binary_files:
+            # TOOD Create a sensible Ticket class for binary files
+            pass
 
         # TODO This should be made parallel
-        for blame in self.blame_queue:
+        for blame in self.blame_jobs:
             if blame.repo_path in self.trees[blame.rev]:
                 self.runner.blame_locs(blame)
 

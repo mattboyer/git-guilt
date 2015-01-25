@@ -197,10 +197,10 @@ class GitRunnerTestCase(TestCase):
 
     @patch('guilt.GitRunner._run_git')
     def test_get_delta_files(self, mock_run_git):
-        mock_run_git.return_value = ['foo.c', 'foo.h']
+        mock_run_git.return_value = ['1	2	foo.c', '3	7	foo.h', '-	-	binary']
 
         self.assertEquals(
-            set(['foo.c', 'foo.h']),
+            (set(['foo.c', 'foo.h']), set(['binary'])),
             self.runner.get_delta_files('HEAD~1', 'HEAD')
         )
 
@@ -268,34 +268,35 @@ class GuiltTestCase(TestCase):
     @patch('guilt.GitRunner._run_git')
     def test_populate_trees(self, mock_run_git):
         self.guilt.args = Mock(since='HEAD~4', until='HEAD~1')
+        mock_run_git.return_value = []
 
         self.guilt.populate_trees()
         self.assertEquals(
             [
-                call(['ls-tree', '-r', '--name-only', '--', 'HEAD~4']),
-                call(['ls-tree', '-r', '--name-only', '--', 'HEAD~1']),
+                call(['ls-tree', '-r', '--', 'HEAD~4']),
+                call(['ls-tree', '-r', '--', 'HEAD~1']),
             ],
             mock_run_git.mock_calls
         )
 
     @patch('guilt.GitRunner.get_delta_files')
     def test_map_blames(self, mock_get_delta):
-        mock_get_delta.return_value = ['foo.c', 'foo.h']
+        mock_get_delta.return_value = set(['foo.c', 'foo.h']), set([])
         self.guilt.args = Mock(since='HEAD~4', until='HEAD~1')
 
         self.guilt.trees['HEAD~4'] = ['foo.c', 'foo.h']
         self.guilt.trees['HEAD~1'] = ['foo.c', 'foo.h']
 
         self.guilt.map_blames()
-        self.assertEquals(4, len(self.guilt.blame_queue))
+        self.assertEquals(4, len(self.guilt.blame_jobs))
         self.assertEquals(
                 [
-                    guilt.BlameTicket(self.guilt.since, 'foo.c', 'HEAD~4'),
-                    guilt.BlameTicket(self.guilt.until, 'foo.c', 'HEAD~1'),
-                    guilt.BlameTicket(self.guilt.since, 'foo.h', 'HEAD~4'),
-                    guilt.BlameTicket(self.guilt.until, 'foo.h', 'HEAD~1'),
+                    guilt.TextBlameTicket(self.guilt.since, 'foo.c', 'HEAD~4'),
+                    guilt.TextBlameTicket(self.guilt.until, 'foo.c', 'HEAD~1'),
+                    guilt.TextBlameTicket(self.guilt.since, 'foo.h', 'HEAD~4'),
+                    guilt.TextBlameTicket(self.guilt.until, 'foo.h', 'HEAD~1'),
                 ],
-                self.guilt.blame_queue
+                self.guilt.blame_jobs
             )
 
     def test_reduce_locs(self):
@@ -320,7 +321,7 @@ class GuiltTestCase(TestCase):
     @patch('guilt.GitRunner.blame_locs')
     @patch('guilt.GitRunner.get_delta_files')
     def test_file_not_in_since_rev(self, mock_get_files, mock_blame):
-        mock_get_files.return_value = set(['in_since_and_until', 'not_in_since'])
+        mock_get_files.return_value = (set(['in_since_and_until', 'not_in_since']), set([]))
 
         # Mock up arg namespace
         self.guilt.args = Mock()
@@ -373,7 +374,7 @@ class GuiltTestCase(TestCase):
     @patch('guilt.GitRunner.blame_locs')
     @patch('guilt.GitRunner.get_delta_files')
     def test_file_not_in_until_rev(self, mock_get_files, mock_blame):
-        mock_get_files.return_value = set(['in_since_and_until', 'not_in_until'])
+        mock_get_files.return_value = (set(['in_since_and_until', 'not_in_until']), set([]))
 
         # Mock up arg namespace
         self.guilt.args = Mock()
