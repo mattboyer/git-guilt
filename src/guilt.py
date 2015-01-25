@@ -400,5 +400,8 @@ class PyGuilt(object):
             self.formatter.show_guilt_stats()
             return 0
 
-if '__main__' == __name__:
+def main():
     sys.exit(PyGuilt().run())
+
+if '__main__' == __name__:
+    main()
