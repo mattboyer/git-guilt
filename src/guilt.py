@@ -10,7 +10,9 @@ import collections
 import functools
 import sys
 # Terminal stuff
-import fcntl, termios, struct
+import fcntl
+import termios
+import struct
 
 
 class GitError(Exception):
@@ -165,7 +167,6 @@ class Formatter(object):
             self.deltas, key=lambda d: abs(d.count)
         ).count)
 
-
     @property
     def bargraph_max_width(self):
         return self._tty_width - (5 + self.longest_name + self.longest_count)
@@ -175,7 +176,7 @@ class Formatter(object):
             return Formatter._default_width
 
         try:
-            (h, w, hp, wp) = struct.unpack(
+            (_, w, _, _) = struct.unpack(
                 'HHHH',
                 fcntl.ioctl(
                     sys.stdout.fileno(),
@@ -183,7 +184,7 @@ class Formatter(object):
                     struct.pack('HHHH', 0, 0, 0, 0)
                 )
             )
-        except Exception as e:
+        except IOError as e:
             sys.stderr.write(str(e))
             return Formatter._default_width
 
@@ -205,7 +206,10 @@ class Formatter(object):
         if self.longest_bargraph <= self.bargraph_max_width:
             return graph_width
 
-        scaled_width = 1 + int(graph_width * (self.bargraph_max_width -1) / self.longest_bargraph)
+        scaled_width = 1 + \
+            int(graph_width * (self.bargraph_max_width - 1) /
+                self.longest_bargraph)
+
         return scaled_width
 
     def format(self, delta):
