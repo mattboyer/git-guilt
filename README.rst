@@ -6,3 +6,10 @@
 
 A Python port of Tim Pettersen's git-guilt
 ==========================================
+
+::
+    518-mboyer@marylou:~/tmp/koala [master:I=R=S_]$ git guilt HEAD~5 HEAD
+    oklai             | 17 +++++++++++++++++
+    Ethan             |  0
+    Ziad Khoury Hanna |  0
+    Ethan Lai         | -4 ----
