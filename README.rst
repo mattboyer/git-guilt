@@ -7,7 +7,7 @@
 A Python port of Tim Pettersen's git-guilt
 ==========================================
 
-::
+.. code-block:: bash
     518-mboyer@marylou:~/tmp/koala [master:I=R=S_]$ git guilt HEAD~5 HEAD
     oklai             | 17 +++++++++++++++++
     Ethan             |  0
