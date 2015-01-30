@@ -8,7 +8,7 @@ python:
         - "3.2"
 
 install:
-        - "pip install -r requirements.txt"
+        - "pip install -r requirements-${TRAVIS_PYTHON_VERSION}.txt"
 
 script:
         - pep8 src
