@@ -18,10 +18,10 @@ import struct
 
 
 def terminal_output(content, stream):
-    if 2 == sys.version_info.major:
+    if 2 == sys.version_info[0]:
         # TODO We need to do The Right Thing wrt. terminal encoding
         print(content.encode('utf_8'), file=stream)
-    elif 3 == sys.version_info.major:
+    elif 3 == sys.version_info[0]:
         assert isinstance(content, str)
         # Python3 stdout/stderr file-like objects implement TextIOWrapper,
         # meaning that they expect to output native unicode strings - the
