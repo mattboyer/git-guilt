@@ -174,22 +174,19 @@ class GitRunnerTestCase(TestCase):
     def test_run_git_no_output(self, mock_process):
         mock_process.return_value.communicate = Mock(return_value=(b'', None))
 
-        with self.assertRaises(guilt.GitError):
-            self.runner._run_git(['log'])
+        self.assertRaises(guilt.GitError, self.runner._run_git, ['log'])
 
     @patch('guilt.subprocess.Popen')
     def test_run_git_exception(self, mock_process):
         mock_process.return_value.communicate = Mock(side_effect=OSError)
 
-        with self.assertRaises(guilt.GitError):
-            self.runner._run_git(['log'])
+        self.assertRaises(guilt.GitError, self.runner._run_git, ['log'])
 
     @patch('guilt.subprocess.Popen')
     def test_run_git_stderr(self, mock_process):
         mock_process.return_value.communicate = Mock(return_value=(b'', b'error'))
 
-        with self.assertRaises(guilt.GitError):
-            self.runner._run_git(['log'])
+        self.assertRaises(guilt.GitError, self.runner._run_git, ['log'])
 
     @patch('guilt.subprocess.Popen')
     def test_run_git(self, mock_process):
@@ -214,8 +211,7 @@ class GitRunnerTestCase(TestCase):
     def test_get_delta_no_files(self, mock_run_git):
         mock_run_git.return_value = []
 
-        with self.assertRaises(ValueError):
-            self.runner.get_delta_files('HEAD~1', 'HEAD')
+        self.assertRaises(ValueError, self.runner.get_delta_files, 'HEAD~1', 'HEAD')
 
     @patch('guilt.GitRunner._run_git')
     def test_blame_locs(self, mock_run_git):
@@ -244,8 +240,7 @@ class GitRunnerTestCase(TestCase):
 
         mock_stderr = stderr_patch.start()
 
-        with self.assertRaises(SystemExit):
-            new_runner = guilt.GitRunner()
+        self.assertRaises(SystemExit, guilt.GitRunner)
         self.assertEquals("Couldn't run 'git rev-parse --show-toplevel':\n\n", mock_stderr.getvalue())
 
         stderr_patch.stop()
