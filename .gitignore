@@ -1,2 +1,4 @@
+git_guilt.egg-info/
 node_modules/
 .coverage
+*.pyc
