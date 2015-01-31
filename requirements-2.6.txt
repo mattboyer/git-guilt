@@ -3,4 +3,4 @@ coveralls
 mock
 nose
 pep8
-pylint
+pylint<=0.10
