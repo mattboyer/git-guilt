@@ -245,6 +245,21 @@ class GitRunnerTestCase(TestCase):
             blame.bucket
         )
 
+    @patch('guilt.GitRunner._run_git')
+    def test_blame_locs_file_missing(self, mock_run_git):
+        mock_run_git.side_effect = guilt.GitError("'git blame arbitrary path failed with:\nfatal: no such path 'src/foo.c' in HEAD")
+
+        blame = Mock()
+        blame.repo_path = 'src/foo.c'
+        blame.bucket = {'Foo Bar': 0, 'Tim Pettersen': 0}
+
+        self.assertEquals(None, self.runner.blame_locs(blame))
+        # THe bucket is unchanged
+        self.assertEquals(
+            {'Foo Bar': 0, 'Tim Pettersen': 0},
+            blame.bucket
+        )
+
     @patch('guilt.subprocess.Popen')
     def test_get_git_root_exception(self, mock_process):
         mock_process.return_value.communicate = Mock(side_effect=OSError)
