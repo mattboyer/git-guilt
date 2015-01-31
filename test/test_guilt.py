@@ -113,9 +113,9 @@ class ArgTestCase(TestCase):
     @patch('sys.argv', ['arg0', 'foo'])
     def test_bad_args(self):
         stderr_patch = None
-        if 2 == sys.version_info.major:
+        if 2 == sys.version_info[0]:
             stderr_patch = patch('sys.stderr', new_callable=io.BytesIO)
-        elif 3 == sys.version_info.major:
+        elif 3 == sys.version_info[0]:
             stderr_patch = patch('sys.stderr', new_callable=io.StringIO)
 
         mock_stderr = stderr_patch.start()
@@ -240,9 +240,9 @@ class GitRunnerTestCase(TestCase):
 
 
         stderr_patch = None
-        if 2 == sys.version_info.major:
+        if 2 == sys.version_info[0]:
             stderr_patch = patch('sys.stderr', new_callable=io.BytesIO)
-        elif 3 == sys.version_info.major:
+        elif 3 == sys.version_info[0]:
             stderr_patch = patch('sys.stderr', new_callable=io.StringIO)
 
         mock_stderr = stderr_patch.start()
@@ -481,9 +481,9 @@ class FormatterTestCase(TestCase):
         self._isatty_patch.stop()
 
     def test_show_guilt(self):
-        if 2 == sys.version_info.major:
+        if 2 == sys.version_info[0]:
             stdout_patch = patch('sys.stdout', new_callable=io.BytesIO)
-        elif 3 == sys.version_info.major:
+        elif 3 == sys.version_info[0]:
             stdout_patch = patch('sys.stdout', new_callable=io.StringIO)
 
         mock_stdout = stdout_patch.start()
