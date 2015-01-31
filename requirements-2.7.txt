@@ -1,0 +1,7 @@
+coverage
+coveralls
+mock
+nose
+pep8
+pylint
+setuptools

@@ -1,6 +1,8 @@
+# -*- coding: UTF-8 -*-
 """
 Port of git-guilt to Python
 """
+from __future__ import print_function
 
 import re
 import os
@@ -31,7 +33,7 @@ class GitRunner(object):
             self._get_git_root()
         except GitError as ex:
             # Do something appropriate
-            sys.stderr.write(str(ex))
+            Formatter.terminal_output(str(ex), sys.stderr)
             raise SystemExit(4)
 
     def _get_git_root(self):
@@ -49,7 +51,6 @@ class GitRunner(object):
         popen_kwargs = {
             'stdout': subprocess.PIPE,
             'stderr': subprocess.PIPE,
-            'universal_newlines': True,
         }
 
         if self._git_toplevel:
@@ -71,6 +72,8 @@ class GitRunner(object):
             ))
 
         if (0 != git_process.returncode) or err:
+            if err:
+                err = err.decode('utf_8')
             raise GitError("'git {args}' failed with:{newline}{err}".format(
                 args=' '.join(args),
                 newline=os.linesep,
@@ -79,7 +82,7 @@ class GitRunner(object):
 
         if not out:
             raise ValueError("No output")
-        return out.splitlines()
+        return out.decode('utf_8').splitlines()
 
     def get_delta_files(self, since_rev, until_rev):
         '''
@@ -134,7 +137,7 @@ class GitRunner(object):
         # If, on the other hand, the file has *never* existed, then it's all
         # good.
         # Either way, that will be handled by the reducer
-        blame_args = ['blame', '--', blame.repo_path]
+        blame_args = ['blame', '--encoding=utf-8', '--', blame.repo_path]
         if blame.rev:
             blame_args.append(blame.rev)
 
@@ -208,6 +211,19 @@ class Formatter(object):
     def bargraph_max_width(self):
         return self._tty_width - (5 + self.longest_name + self.longest_count)
 
+    @staticmethod
+    def terminal_output(content, stream):
+        if 2 == sys.version_info[0]:
+            # TODO We need to do The Right Thing wrt. terminal encoding
+            print(content.encode('utf_8'), file=stream)
+        elif 3 == sys.version_info[0]:
+            assert isinstance(content, str)
+            # Python3 stdout/stderr file-like objects implement TextIOWrapper,
+            # meaning that they expect to output native unicode strings - the
+            # sys.stdout/sys.stderr objects carry their own encoding
+            # information
+            print(content, file=stream)
+
     def _get_tty_width(self):
         if not self._is_tty:
             return Formatter._default_width
@@ -221,8 +237,7 @@ class Formatter(object):
                     struct.pack('HHHH', 0, 0, 0, 0)
                 )
             )
-        except IOError as e:
-            sys.stderr.write(str(e))
+        except IOError:
             return Formatter._default_width
 
         if 0 < w:
@@ -234,7 +249,7 @@ class Formatter(object):
         # TODO Do something like diffstat's number of files changed, number or
         # insertions and number of deletions
         for delta in self.deltas:
-            print(self.format(delta))
+            Formatter.terminal_output(self.format(delta), sys.stdout)
 
     def _scale_bargraph(self, graph_width):
         if 0 == graph_width:
@@ -263,7 +278,7 @@ class Formatter(object):
             if self._is_tty:
                 bargraph = Formatter._red + bargraph + Formatter._normal
 
-        return " {author} | {count} {bargraph}".format(
+        return u" {author} | {count} {bargraph}".format(
             author=delta.author.ljust(self.longest_name),
             count=str(delta.count).rjust(self.longest_count),
             bargraph=bargraph,
@@ -427,7 +442,7 @@ class PyGuilt(object):
         try:
             self.process_args()
         except GitError as ex:
-            sys.stderr.write(str(ex))
+            Formatter.terminal_output(str(ex), sys.stderr)
             return 1
         else:
             self.populate_trees()
@@ -437,5 +452,9 @@ class PyGuilt(object):
             self.formatter.show_guilt_stats()
             return 0
 
-if '__main__' == __name__:
+
+def main():
     sys.exit(PyGuilt().run())
+
+if '__main__' == __name__:
+    main()
