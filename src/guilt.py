@@ -17,18 +17,6 @@ import termios
 import struct
 
 
-def terminal_output(content, stream):
-    if 2 == sys.version_info.major:
-        # TODO We need to do The Right Thing wrt. terminal encoding
-        print(content.encode('utf_8'), file=stream)
-    elif 3 == sys.version_info.major:
-        assert isinstance(content, str)
-        # Python3 stdout/stderr file-like objects implement TextIOWrapper,
-        # meaning that they expect to output native unicode strings - the
-        # sys.stdout/sys.stderr objects carry their own encoding information
-        print(content, file=stream)
-
-
 class GitError(Exception):
     pass
 
@@ -45,7 +33,7 @@ class GitRunner(object):
             self._get_git_root()
         except GitError as ex:
             # Do something appropriate
-            terminal_output(str(ex), sys.stderr)
+            Formatter.terminal_output(str(ex), sys.stderr)
             raise SystemExit(4)
 
     def _get_git_root(self):
@@ -84,6 +72,8 @@ class GitRunner(object):
             ))
 
         if (0 != git_process.returncode) or err:
+            if err:
+                err = err.decode('utf_8')
             raise GitError("'git {args}' failed with:{newline}{err}".format(
                 args=' '.join(args),
                 newline=os.linesep,
@@ -111,11 +101,7 @@ class GitRunner(object):
 
     def populate_tree(self, rev):
         ls_tree_args = ['ls-tree', '-r', '--name-only', '--', rev]
-        try:
-            lines = self._run_git(ls_tree_args)
-        except GitError as ge:
-            raise ge
-
+        lines = self._run_git(ls_tree_args)
         return lines
 
     def blame_locs(self, blame):
@@ -193,6 +179,19 @@ class Formatter(object):
     def bargraph_max_width(self):
         return self._tty_width - (5 + self.longest_name + self.longest_count)
 
+    @staticmethod
+    def terminal_output(content, stream):
+        if 2 == sys.version_info[0]:
+            # TODO We need to do The Right Thing wrt. terminal encoding
+            print(content.encode('utf_8'), file=stream)
+        elif 3 == sys.version_info[0]:
+            assert isinstance(content, str)
+            # Python3 stdout/stderr file-like objects implement TextIOWrapper,
+            # meaning that they expect to output native unicode strings - the
+            # sys.stdout/sys.stderr objects carry their own encoding
+            # information
+            print(content, file=stream)
+
     def _get_tty_width(self):
         if not self._is_tty:
             return Formatter._default_width
@@ -206,8 +205,7 @@ class Formatter(object):
                     struct.pack('HHHH', 0, 0, 0, 0)
                 )
             )
-        except IOError as ex:
-            terminal_output(str(ex), sys.stderr)
+        except IOError:
             return Formatter._default_width
 
         if 0 < w:
@@ -219,7 +217,7 @@ class Formatter(object):
         # TODO Do something like diffstat's number of files changed, number or
         # insertions and number of deletions
         for delta in self.deltas:
-            terminal_output(self.format(delta), sys.stdout)
+            Formatter.terminal_output(self.format(delta), sys.stdout)
 
     def _scale_bargraph(self, graph_width):
         if 0 == graph_width:
@@ -403,7 +401,7 @@ class PyGuilt(object):
         try:
             self.process_args()
         except GitError as ex:
-            terminal_output(str(ex), sys.stderr)
+            Formatter.terminal_output(str(ex), sys.stderr)
             return 1
         else:
             self.populate_trees()

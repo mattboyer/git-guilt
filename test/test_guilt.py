@@ -113,15 +113,14 @@ class ArgTestCase(TestCase):
     @patch('sys.argv', ['arg0', 'foo'])
     def test_bad_args(self):
         stderr_patch = None
-        if 2 == sys.version_info.major:
+        if 2 == sys.version_info[0]:
             stderr_patch = patch('sys.stderr', new_callable=io.BytesIO)
-        elif 3 == sys.version_info.major:
+        elif 3 == sys.version_info[0]:
             stderr_patch = patch('sys.stderr', new_callable=io.StringIO)
 
         mock_stderr = stderr_patch.start()
 
-        with self.assertRaises(guilt.GitError):
-            self.guilt.process_args()
+        self.assertRaises(guilt.GitError, self.guilt.process_args)
 
         self.assertEquals(1, self.guilt.run())
         self.assertEquals('bad args\n', mock_stderr.getvalue())
@@ -130,11 +129,9 @@ class ArgTestCase(TestCase):
 
     @patch('sys.argv', ['arg0', '--help'])
     def test_help(self):
-        with self.assertRaises(SystemExit):
-            self.guilt.process_args()
+        self.assertRaises(SystemExit, self.guilt.process_args)
 
-        with self.assertRaises(SystemExit):
-            self.guilt.run()
+        self.assertRaises(SystemExit, self.guilt.run)
 
 
 class GitRunnerTestCase(TestCase):
@@ -174,25 +171,40 @@ class GitRunnerTestCase(TestCase):
         mock_process.assert_called_once_with(['nosuchgit', 'foo'], cwd='/my/top/level/git/directory', stderr=-1, stdout=-1)
 
     @patch('guilt.subprocess.Popen')
-    def test_run_git_no_output(self, mock_process):
-        mock_process.return_value.communicate = Mock(return_value=(b'', None))
+    def test_run_git_no_output_error(self, mock_process):
+        mock_process.return_value.returncode = 0
+        mock_process.return_value.communicate = \
+                Mock(return_value=(b'', b'Some error'))
 
-        with self.assertRaises(guilt.GitError):
-            self.runner._run_git(['log'])
+        self.assertRaises(guilt.GitError, self.runner._run_git, ['log'])
+
+    @patch('guilt.subprocess.Popen')
+    def test_run_git_no_output_no_error(self, mock_process):
+        mock_process.return_value.returncode = 0
+        mock_process.return_value.communicate = \
+                Mock(return_value=(b'', b''))
+
+        self.assertRaises(ValueError, self.runner._run_git, ['log'])
+
+    @patch('guilt.subprocess.Popen')
+    def test_run_git_non_zerp(self, mock_process):
+        mock_process.return_value.returncode = 1
+        mock_process.return_value.communicate = \
+                Mock(return_value=(b'Foo', b'Bar'))
+
+        self.assertRaises(guilt.GitError, self.runner._run_git, ['log'])
 
     @patch('guilt.subprocess.Popen')
     def test_run_git_exception(self, mock_process):
         mock_process.return_value.communicate = Mock(side_effect=OSError)
 
-        with self.assertRaises(guilt.GitError):
-            self.runner._run_git(['log'])
+        self.assertRaises(guilt.GitError, self.runner._run_git, ['log'])
 
     @patch('guilt.subprocess.Popen')
     def test_run_git_stderr(self, mock_process):
         mock_process.return_value.communicate = Mock(return_value=(b'', b'error'))
 
-        with self.assertRaises(guilt.GitError):
-            self.runner._run_git(['log'])
+        self.assertRaises(guilt.GitError, self.runner._run_git, ['log'])
 
     @patch('guilt.subprocess.Popen')
     def test_run_git(self, mock_process):
@@ -217,8 +229,7 @@ class GitRunnerTestCase(TestCase):
     def test_get_delta_no_files(self, mock_run_git):
         mock_run_git.return_value = []
 
-        with self.assertRaises(ValueError):
-            self.runner.get_delta_files('HEAD~1', 'HEAD')
+        self.assertRaises(ValueError, self.runner.get_delta_files, 'HEAD~1', 'HEAD')
 
     @patch('guilt.GitRunner._run_git')
     def test_blame_locs(self, mock_run_git):
@@ -234,21 +245,35 @@ class GitRunnerTestCase(TestCase):
             blame.bucket
         )
 
+    @patch('guilt.GitRunner._run_git')
+    def test_blame_locs_file_missing(self, mock_run_git):
+        mock_run_git.side_effect = guilt.GitError("'git blame arbitrary path failed with:\nfatal: no such path 'src/foo.c' in HEAD")
+
+        blame = Mock()
+        blame.repo_path = 'src/foo.c'
+        blame.bucket = {'Foo Bar': 0, 'Tim Pettersen': 0}
+
+        self.assertEquals(None, self.runner.blame_locs(blame))
+        # THe bucket is unchanged
+        self.assertEquals(
+            {'Foo Bar': 0, 'Tim Pettersen': 0},
+            blame.bucket
+        )
+
     @patch('guilt.subprocess.Popen')
     def test_get_git_root_exception(self, mock_process):
         mock_process.return_value.communicate = Mock(side_effect=OSError)
 
 
         stderr_patch = None
-        if 2 == sys.version_info.major:
+        if 2 == sys.version_info[0]:
             stderr_patch = patch('sys.stderr', new_callable=io.BytesIO)
-        elif 3 == sys.version_info.major:
+        elif 3 == sys.version_info[0]:
             stderr_patch = patch('sys.stderr', new_callable=io.StringIO)
 
         mock_stderr = stderr_patch.start()
 
-        with self.assertRaises(SystemExit):
-            new_runner = guilt.GitRunner()
+        self.assertRaises(SystemExit, guilt.GitRunner)
         self.assertEquals("Couldn't run 'git rev-parse --show-toplevel':\n\n", mock_stderr.getvalue())
 
         stderr_patch.stop()
@@ -469,7 +494,7 @@ class FormatterTestCase(TestCase):
             fileno=Mock(return_value=1),
         )
 
-        # ...as well as os.isatty
+        # Mock os.isatty
         self._isatty_patch = patch('guilt.os.isatty')
         self.mocked_isatty = self._isatty_patch.start()
         self.mocked_isatty.return_value = False
@@ -477,13 +502,40 @@ class FormatterTestCase(TestCase):
         self.formatter = guilt.Formatter([])
 
     def tearDown(self):
-        self._stdout_patch.stop()
         self._isatty_patch.stop()
 
+    def test_get_width_not_tty(self):
+        self.assertEquals(80, self.formatter._get_tty_width())
+
+    @patch('guilt.fcntl.ioctl')
+    def test_get_width_tty(self, mocked_ioctl):
+        self._isatty_patch.stop()
+
+        mocked_isatty = self._isatty_patch.start()
+        mocked_isatty.return_value = True
+        del self.formatter
+
+        mocked_ioctl.return_value = b'\x00\x00\x6e\x00\x00\x00\x00\x00'
+        self.formatter = guilt.Formatter([])
+        self.assertEquals(110, self.formatter._get_tty_width())
+        del self.formatter
+
+        # For whatever reason, we get a length of 0 - expect 80
+        mocked_ioctl.return_value = b'\x00\x00\x00\x00\x00\x00\x00\x00'
+        self.formatter = guilt.Formatter([])
+        self.assertEquals(80, self.formatter._get_tty_width())
+        del self.formatter
+
+        del mocked_ioctl.return_value
+        mocked_ioctl.side_effect = IOError
+        self.formatter = guilt.Formatter([])
+        self.assertEquals(80, self.formatter._get_tty_width())
+        del self.formatter
+
     def test_show_guilt(self):
-        if 2 == sys.version_info.major:
+        if 2 == sys.version_info[0]:
             stdout_patch = patch('sys.stdout', new_callable=io.BytesIO)
-        elif 3 == sys.version_info.major:
+        elif 3 == sys.version_info[0]:
             stdout_patch = patch('sys.stdout', new_callable=io.StringIO)
 
         mock_stdout = stdout_patch.start()
