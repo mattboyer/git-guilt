@@ -120,8 +120,7 @@ class ArgTestCase(TestCase):
 
         mock_stderr = stderr_patch.start()
 
-        with self.assertRaises(guilt.GitError):
-            self.guilt.process_args()
+        self.assertRaises(guilt.GitError, self.guilt.process_args)
 
         self.assertEquals(1, self.guilt.run())
         self.assertEquals('bad args\n', mock_stderr.getvalue())
@@ -130,11 +129,9 @@ class ArgTestCase(TestCase):
 
     @patch('sys.argv', ['arg0', '--help'])
     def test_help(self):
-        with self.assertRaises(SystemExit):
-            self.guilt.process_args()
+        self.assertRaises(SystemExit, self.guilt.process_args)
 
-        with self.assertRaises(SystemExit):
-            self.guilt.run()
+        self.assertRaises(SystemExit, self.guilt.run)
 
 
 class GitRunnerTestCase(TestCase):
