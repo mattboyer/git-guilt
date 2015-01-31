@@ -512,7 +512,7 @@ class FormatterTestCase(TestCase):
         del self.formatter
 
         del mocked_ioctl.return_value
-        mocked_ioctl.side_efect = IOError
+        mocked_ioctl.side_effect = IOError
         self.formatter = guilt.Formatter([])
         self.assertEquals(80, self.formatter._get_tty_width())
         del self.formatter

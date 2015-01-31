@@ -101,11 +101,7 @@ class GitRunner(object):
 
     def populate_tree(self, rev):
         ls_tree_args = ['ls-tree', '-r', '--name-only', '--', rev]
-        try:
-            lines = self._run_git(ls_tree_args)
-        except GitError as ge:
-            raise ge
-
+        lines = self._run_git(ls_tree_args)
         return lines
 
     def blame_locs(self, blame):
