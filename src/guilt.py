@@ -1,3 +1,4 @@
+# -*- coding: UTF-8 -*-
 """
 Port of git-guilt to Python
 """
