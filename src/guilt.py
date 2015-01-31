@@ -116,17 +116,13 @@ class GitRunner(object):
         ls_tree_args = ['ls-tree', '-r', '--', rev]
         paths = set()
 
-        try:
-            lines = self._run_git(ls_tree_args)
-            for line in lines:
-                _, object_type, _ = line.split('\t')[0].split()
-                path = line.split('\t')[1]
-                if 'blob' != object_type:
-                    continue
-                paths.add(path)
-
-        except GitError as ge:
-            raise ge
+        lines = self._run_git(ls_tree_args)
+        for line in lines:
+            _, object_type, _ = line.split('\t')[0].split()
+            path = line.split('\t')[1]
+            if 'blob' != object_type:
+                continue
+            paths.add(path)
 
         return paths
 
