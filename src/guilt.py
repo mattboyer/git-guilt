@@ -63,7 +63,6 @@ class GitRunner(object):
         popen_kwargs = {
             'stdout': subprocess.PIPE,
             'stderr': subprocess.PIPE,
-            #'universal_newlines': True,
         }
 
         if self._git_toplevel:
@@ -207,7 +206,7 @@ class Formatter(object):
                     struct.pack('HHHH', 0, 0, 0, 0)
                 )
             )
-        except IOError as e:
+        except IOError as ex:
             terminal_output(str(ex), sys.stderr)
             return Formatter._default_width
 
