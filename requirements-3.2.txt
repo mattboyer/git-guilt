@@ -4,3 +4,4 @@ mock
 nose
 pep8
 pylint<=1.1.0
+astroid<=1.2.0
