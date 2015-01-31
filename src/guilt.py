@@ -72,6 +72,8 @@ class GitRunner(object):
             ))
 
         if (0 != git_process.returncode) or err:
+            if err:
+                err = err.decode('utf_8')
             raise GitError("'git {args}' failed with:{newline}{err}".format(
                 args=' '.join(args),
                 newline=os.linesep,

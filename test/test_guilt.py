@@ -171,12 +171,20 @@ class GitRunnerTestCase(TestCase):
         mock_process.assert_called_once_with(['nosuchgit', 'foo'], cwd='/my/top/level/git/directory', stderr=-1, stdout=-1)
 
     @patch('guilt.subprocess.Popen')
-    def test_run_git_no_output(self, mock_process):
+    def test_run_git_no_output_error(self, mock_process):
         mock_process.return_value.returncode = 0
         mock_process.return_value.communicate = \
                 Mock(return_value=(b'', b'Some error'))
 
         self.assertRaises(guilt.GitError, self.runner._run_git, ['log'])
+
+    @patch('guilt.subprocess.Popen')
+    def test_run_git_no_output_no_error(self, mock_process):
+        mock_process.return_value.returncode = 0
+        mock_process.return_value.communicate = \
+                Mock(return_value=(b'', b''))
+
+        self.assertRaises(ValueError, self.runner._run_git, ['log'])
 
     @patch('guilt.subprocess.Popen')
     def test_run_git_non_zerp(self, mock_process):
