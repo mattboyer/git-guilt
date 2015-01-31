@@ -209,8 +209,7 @@ class Formatter(object):
                     struct.pack('HHHH', 0, 0, 0, 0)
                 )
             )
-        except IOError as ex:
-            Formatter.terminal_output(str(ex), sys.stderr)
+        except IOError:
             return Formatter._default_width
 
         if 0 < w:

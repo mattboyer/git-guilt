@@ -479,7 +479,7 @@ class FormatterTestCase(TestCase):
             fileno=Mock(return_value=1),
         )
 
-        # ...as well as os.isatty
+        # Mock os.isatty
         self._isatty_patch = patch('guilt.os.isatty')
         self.mocked_isatty = self._isatty_patch.start()
         self.mocked_isatty.return_value = False
@@ -487,8 +487,34 @@ class FormatterTestCase(TestCase):
         self.formatter = guilt.Formatter([])
 
     def tearDown(self):
-        self._stdout_patch.stop()
         self._isatty_patch.stop()
+
+    def test_get_width_not_tty(self):
+        self.assertEquals(80, self.formatter._get_tty_width())
+
+    @patch('guilt.fcntl.ioctl')
+    def test_get_width_tty(self, mocked_ioctl):
+        self._isatty_patch.stop()
+
+        mocked_isatty = self._isatty_patch.start()
+        mocked_isatty.return_value = True
+        del self.formatter
+
+        mocked_ioctl.return_value = b'\x00\x00\x6e\x00\x00\x00\x00\x00'
+        self.formatter = guilt.Formatter([])
+        self.assertEquals(110, self.formatter._get_tty_width())
+        del self.formatter
+
+        # For whatever reason, we get a length of 0 - expect 80
+        mocked_ioctl.return_value = b'\x00\x00\x00\x00\x00\x00\x00\x00'
+        self.formatter = guilt.Formatter([])
+        self.assertEquals(80, self.formatter._get_tty_width())
+        del self.formatter
+
+        mocked_ioctl.side_efect = IOError
+        self.formatter = guilt.Formatter([])
+        self.assertEquals(80, self.formatter._get_tty_width())
+        del self.formatter
 
     def test_show_guilt(self):
         if 2 == sys.version_info[0]:
