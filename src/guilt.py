@@ -199,8 +199,6 @@ class BlameTicket(object):
         environment = dict()
         if self.config_pairs:
             environment['GIT_CONFIG_PARAMETERS'] = self._format_config()
-            if 'core.attributesfile' in self.config_pairs:
-                environment['GIT_TRACE'] = '/tmp/foo'
         environment['GIT_CONFIG_NOSYSTEM'] = 'true'
         return environment
 
@@ -240,7 +238,7 @@ class BinaryBlameTicket(BlameTicket):
         super(BinaryBlameTicket, self).__init__(runner, bucket, path, rev)
 
         binary_git_config_dict = dict()
-        binary_git_config_dict['diff.binary_blame.textconv'] = 'xxd'
+        binary_git_config_dict['diff.binary_blame.textconv'] = 'xxd -p -c1'
         binary_git_config_dict['diff.binary_blame.cachetextconv'] = 'true'
 
         self.config_pairs.update(binary_git_config_dict)
@@ -256,11 +254,10 @@ class BinaryBlameTicket(BlameTicket):
         with tempfile.NamedTemporaryFile(delete=True) as temp_file:
             try:
                 # We need to prepare the gitattributes file
-                print(
-                    "{binary_path} diff=binary_blame".format(
+                temp_file.write(
+                    ("{binary_path} diff=binary_blame".format(
                         binary_path=self.repo_path
-                    ),
-                    file=temp_file
+                    ) + os.linesep).encode('utf_8')
                 )
                 temp_file.flush()
                 self.config_pairs.update({
@@ -510,11 +507,6 @@ class PyGuilt(object):
             )
 
         for repo_path in sorted(binary_files):
-            # TODO Create a sensible Ticket class for binary files
-            # How should we measure blame in binary files? There are no lines,
-            # so bytes would be the next most natural unit of blame
-            # Ah, but then how do we associate each and every byte in a file to
-            # its most recent author?
             self.blame_jobs.append(
                 BinaryBlameTicket(
                     self.runner,
