@@ -71,7 +71,7 @@ class GitRunner(object):
         top_level_dir = self._run_git(GitRunner._toplevel_args)
         self._git_toplevel = top_level_dir[0]
 
-    def _run_git(self, args):
+    def _run_git(self, args, git_env=None):
         '''
         Runs the git executable with the arguments given and returns a list of
         lines produced on its standard output.
@@ -81,6 +81,9 @@ class GitRunner(object):
             'stdout': subprocess.PIPE,
             'stderr': subprocess.PIPE,
         }
+
+        if git_env:
+            popen_kwargs['env'] = git_env
 
         if self._git_toplevel:
             popen_kwargs['cwd'] = self._git_toplevel
@@ -111,6 +114,7 @@ class GitRunner(object):
 
         if not out:
             raise ValueError("No output")
+
         return out.decode('utf_8').splitlines()
 
     def get_delta_files(self, since_rev, until_rev):
@@ -156,18 +160,11 @@ class GitRunner(object):
         return paths
 
     def blame_locs(self, blame):
-        # blame.repo_path may not exist for this particular revision
-        # So what do we do then? if the file existed before, then surely all
-        # LOCs should be subtracted from their authors' share of guilt
-        # If, on the other hand, the file has *never* existed, then it's all
-        # good.
-        # Either way, that will be handled by the reducer
-        blame_args = ['blame', '--encoding=utf-8', '--', blame.repo_path]
-        if blame.rev:
-            blame_args.append(blame.rev)
-
         try:
-            lines = self._run_git(blame_args)
+            lines = self._run_git(
+                blame.blame_args(),
+                git_env=blame.blame_env()
+            )
         except GitError as ge:
             if 'no such path ' in str(ge):
                 return None
@@ -182,13 +179,48 @@ class GitRunner(object):
                 blame.bucket[line_author] += 1
 
 
-class TextBlameTicket(object):
+class BlameTicket(object):
     '''A queued blame. This is a TODO item, really'''
 
     def __init__(self, bucket, path, rev):
         self.bucket = bucket
         self.repo_path = path
         self.rev = rev
+        self.config_pairs = dict()
+        self.config_pairs['user.name'] = 'foo'
+        self.config_pairs['user.email'] = 'bar@example.com'
+
+    def __eq__(self, blame):
+        return (self.bucket == blame.bucket) \
+            and (self.repo_path == blame.repo_path) \
+            and (self.bucket == blame.bucket)
+
+    def _format_config(self):
+        git_config_params = list()
+        for key, value in self.config_pairs.items():
+            git_config_params.append("'{config_key}={config_value}'".format(
+                config_key=key,
+                config_value=value
+            ))
+        return ' '.join(git_config_params)
+
+    def blame_args(self):
+        blame_args = ['blame', '--encoding=utf-8', '--', self.repo_path]
+        if self.rev:
+            blame_args.append(self.rev)
+        return blame_args
+
+    def blame_env(self):
+        environment = dict()
+        if self.config_pairs:
+            environment['GIT_CONFIG_PARAMETERS'] = self._format_config()
+        environment['GIT_CONFIG_NOSYSTEM'] = 'true'
+        return environment
+
+
+class TextBlameTicket(BlameTicket):
+    def __init__(self, bucket, path, rev):
+        super(TextBlameTicket, self).__init__(bucket, path, rev)
 
     def __repr__(self):
         return "<TextBlame {rev}:\"{path}\">".format(
@@ -196,10 +228,26 @@ class TextBlameTicket(object):
             path=self.repo_path,
         )
 
-    def __eq__(self, blame):
-        return (self.bucket == blame.bucket) \
-            and (self.repo_path == blame.repo_path) \
-            and (self.bucket == blame.bucket)
+
+class BinaryBlameTicket(BlameTicket):
+    def __init__(self, bucket, path, rev):
+        super(BinaryBlameTicket, self).__init__(bucket, path, rev)
+
+        binary_git_config_dict = dict()
+
+        # TODO This should be handled through a temp file
+        binary_git_config_dict['core.attributesfile'] = \
+            '/tmp/binary_blame_gitattributes'
+        binary_git_config_dict['diff.binary_blame.textconv'] = 'xxd -c1 -p'
+        binary_git_config_dict['diff.binary_blame.cachetextconv'] = 'true'
+
+        self.config_pairs.update(binary_git_config_dict)
+
+    def __repr__(self):
+        return "<BinaryBlame {rev}:\"{path}\">".format(
+            rev=self.rev,
+            path=self.repo_path,
+        )
 
 
 class Formatter(object):
@@ -423,7 +471,13 @@ class PyGuilt(object):
             # so bytes would be the next most natural unit of blame
             # Ah, but then how do we associate each and every byte in a file to
             # its most recent author?
-            pass
+            self.blame_jobs.append(
+                BinaryBlameTicket(self.since, repo_path, self.args.since)
+            )
+
+            self.blame_jobs.append(
+                BinaryBlameTicket(self.until, repo_path, self.args.until)
+            )
 
         # TODO This should be made parallel
         for blame in self.blame_jobs:
