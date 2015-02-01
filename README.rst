@@ -7,6 +7,8 @@
 A Python port of Tim Pettersen's git-guilt
 ==========================================
 
+``git-guilt`` aims to provide information regarding the *transfer* of ownership between two revisions of a repository.
+
 .. code-block:: bash
 
     518-mboyer@marylou:~/tmp/koala [master:I=R=S_]$ git guilt HEAD~5 HEAD
