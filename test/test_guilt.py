@@ -191,13 +191,13 @@ class GitRunnerTestCase(TestCase):
                 Mock(return_value=None)
 
         self.runner._git_toplevel = None
-        self.runner._run_git(['foo'])
+        self.runner.run_git(['foo'])
 
         mock_process.assert_called_once_with(['nosuchgit', 'foo'], stderr=-1, stdout=-1)
         mock_process.reset_mock()
 
         self.runner._git_toplevel = '/my/top/level/git/directory'
-        self.runner._run_git(['foo'])
+        self.runner.run_git(['foo'])
         mock_process.assert_called_once_with(['nosuchgit', 'foo'], cwd='/my/top/level/git/directory', stderr=-1, stdout=-1)
 
     @patch('guilt.subprocess.Popen')
@@ -206,7 +206,7 @@ class GitRunnerTestCase(TestCase):
         mock_process.return_value.communicate = \
                 Mock(return_value=(b'', b'Some error'))
 
-        self.assertRaises(guilt.GitError, self.runner._run_git, ['log'])
+        self.assertRaises(guilt.GitError, self.runner.run_git, ['log'])
 
     @patch('guilt.subprocess.Popen')
     def test_run_git_no_output_no_error(self, mock_process):
@@ -214,7 +214,7 @@ class GitRunnerTestCase(TestCase):
         mock_process.return_value.communicate = \
                 Mock(return_value=(b'', b''))
 
-        self.assertRaises(ValueError, self.runner._run_git, ['log'])
+        self.assertRaises(ValueError, self.runner.run_git, ['log'])
 
     @patch('guilt.subprocess.Popen')
     def test_run_git_non_zerp(self, mock_process):
@@ -222,19 +222,19 @@ class GitRunnerTestCase(TestCase):
         mock_process.return_value.communicate = \
                 Mock(return_value=(b'Foo', b'Bar'))
 
-        self.assertRaises(guilt.GitError, self.runner._run_git, ['log'])
+        self.assertRaises(guilt.GitError, self.runner.run_git, ['log'])
 
     @patch('guilt.subprocess.Popen')
     def test_run_git_exception(self, mock_process):
         mock_process.return_value.communicate = Mock(side_effect=OSError)
 
-        self.assertRaises(guilt.GitError, self.runner._run_git, ['log'])
+        self.assertRaises(guilt.GitError, self.runner.run_git, ['log'])
 
     @patch('guilt.subprocess.Popen')
     def test_run_git_stderr(self, mock_process):
         mock_process.return_value.communicate = Mock(return_value=(b'', b'error'))
 
-        self.assertRaises(guilt.GitError, self.runner._run_git, ['log'])
+        self.assertRaises(guilt.GitError, self.runner.run_git, ['log'])
 
     @patch('guilt.subprocess.Popen')
     def test_run_git(self, mock_process):
@@ -244,9 +244,9 @@ class GitRunnerTestCase(TestCase):
         mock_process.return_value.communicate = \
                 Mock(return_value=(b'a\nb\nc', None))
 
-        self.assertEquals(['a', 'b', 'c'], self.runner._run_git(['log']))
+        self.assertEquals(['a', 'b', 'c'], self.runner.run_git(['log']))
 
-    @patch('guilt.GitRunner._run_git')
+    @patch('guilt.GitRunner.run_git')
     def test_get_delta_files(self, mock_run_git):
         mock_run_git.return_value = ['1	2	foo.c', '3	7	foo.h', '-	-	binary']
 
@@ -255,13 +255,13 @@ class GitRunnerTestCase(TestCase):
             self.runner.get_delta_files('HEAD~1', 'HEAD')
         )
 
-    @patch('guilt.GitRunner._run_git')
+    @patch('guilt.GitRunner.run_git')
     def test_get_delta_no_files(self, mock_run_git):
         mock_run_git.return_value = []
 
         self.assertRaises(ValueError, self.runner.get_delta_files, 'HEAD~1', 'HEAD')
 
-    @patch('guilt.GitRunner._run_git')
+    @patch('guilt.GitRunner.run_git')
     def test_blame_locs(self, mock_run_git):
         mock_run_git.return_value = test.constants.blame_author_names.splitlines()
 
@@ -269,13 +269,13 @@ class GitRunnerTestCase(TestCase):
         blame.repo_path = 'src/foo.c'
         blame.bucket = {'Foo Bar': 0, 'Tim Pettersen': 0}
 
-        self.runner.blame_locs(blame)
+        blame.process()
         self.assertEquals(
             {'Foo Bar': 2, 'Tim Pettersen': 3},
             blame.bucket
         )
 
-    @patch('guilt.GitRunner._run_git')
+    @patch('guilt.GitRunner.run_git')
     def test_blame_locs_file_missing(self, mock_run_git):
         mock_run_git.side_effect = guilt.GitError("'git blame arbitrary path failed with:\nfatal: no such path 'src/foo.c' in HEAD")
 
@@ -283,7 +283,7 @@ class GitRunnerTestCase(TestCase):
         blame.repo_path = 'src/foo.c'
         blame.bucket = {'Foo Bar': 0, 'Tim Pettersen': 0}
 
-        self.assertEquals(None, self.runner.blame_locs(blame))
+        self.assertEquals(None, blame.process())
         # THe bucket is unchanged
         self.assertEquals(
             {'Foo Bar': 0, 'Tim Pettersen': 0},
@@ -339,7 +339,7 @@ class GuiltTestCase(TestCase):
         self._stdout_patch.stop()
         self._isatty_patch.stop()
 
-    @patch('guilt.GitRunner._run_git')
+    @patch('guilt.GitRunner.run_git')
     def test_populate_trees(self, mock_run_git):
         self.guilt.args = Mock(since='HEAD~4', until='HEAD~1')
         mock_run_git.return_value = []
