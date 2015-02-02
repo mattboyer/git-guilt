@@ -37,6 +37,7 @@ import re
 import os
 import argparse
 import subprocess
+import tempfile
 import collections
 import functools
 import sys
@@ -52,11 +53,9 @@ class GitError(Exception):
 
 class GitRunner(object):
     _toplevel_args = ['rev-parse', '--show-toplevel']
-    _author_regex = r'^[^(]*\((.*?) \d{4}-\d{2}-\d{2}'
     _git_executable = 'git'
 
     def __init__(self):
-        self.name_regex = re.compile(GitRunner._author_regex)
         self._git_toplevel = None
         try:
             self._get_git_root()
@@ -68,10 +67,10 @@ class GitRunner(object):
     def _get_git_root(self):
         # We should probably go beyond just finding the root dir for the Git
         # repo and do some sanity-checking on git itself
-        top_level_dir = self._run_git(GitRunner._toplevel_args)
+        top_level_dir = self.run_git(GitRunner._toplevel_args)
         self._git_toplevel = top_level_dir[0]
 
-    def _run_git(self, args):
+    def run_git(self, args, git_env=None):
         '''
         Runs the git executable with the arguments given and returns a list of
         lines produced on its standard output.
@@ -81,6 +80,9 @@ class GitRunner(object):
             'stdout': subprocess.PIPE,
             'stderr': subprocess.PIPE,
         }
+
+        if git_env:
+            popen_kwargs['env'] = git_env
 
         if self._git_toplevel:
             popen_kwargs['cwd'] = self._git_toplevel
@@ -111,6 +113,7 @@ class GitRunner(object):
 
         if not out:
             raise ValueError("No output")
+
         return out.decode('utf_8').splitlines()
 
     def get_delta_files(self, since_rev, until_rev):
@@ -119,33 +122,103 @@ class GitRunner(object):
         until_rev.
         '''
 
-        diff_args = ['diff', '--name-only', since_rev]
+        # We wanna take note of binary files and process them differently
+        text_files = set()
+        binary_files = set()
+
+        diff_args = ['diff', '--numstat', since_rev]
         if until_rev:
             diff_args.append(until_rev)
 
-        file_list = self._run_git(diff_args)
-        if 0 == len(file_list):
+        num_stat_lines = self.run_git(diff_args)
+        if 0 == len(num_stat_lines):
             raise ValueError()
-        return set(file_list)
+
+        for num_stat_line in num_stat_lines:
+            (additions, deletions, file_name) = num_stat_line.split('\t')
+            if ('-', '-') == (additions, deletions):
+                binary_files.add(file_name)
+            else:
+                text_files.add(file_name)
+
+        return (text_files, binary_files)
 
     def populate_tree(self, rev):
-        ls_tree_args = ['ls-tree', '-r', '--name-only', '--', rev]
-        lines = self._run_git(ls_tree_args)
-        return lines
+        # We need to detect submodules/non-blobs
+        ls_tree_args = ['ls-tree', '-r', '--', rev]
+        paths = set()
 
-    def blame_locs(self, blame):
-        # blame.repo_path may not exist for this particular revision
-        # So what do we do then? if the file existed before, then surely all
-        # LOCs should be subtracted from their authors' share of guilt
-        # If, on the other hand, the file has *never* existed, then it's all
-        # good.
-        # Either way, that will be handled by the reducer
-        blame_args = ['blame', '--encoding=utf-8', '--', blame.repo_path]
-        if blame.rev:
-            blame_args.append(blame.rev)
+        lines = self.run_git(ls_tree_args)
+        for line in lines:
+            _, object_type, _ = line.split('\t')[0].split()
+            path = line.split('\t')[1]
+            if 'blob' != object_type:
+                continue
+            paths.add(path)
 
+        return paths
+
+
+class BlameTicket(object):
+    '''A queued blame. This is a TODO item, really'''
+    _author_regex = r'^[^(]*\((.*?) \d{4}-\d{2}-\d{2}'
+
+    def __init__(self, runner, bucket, path, rev):
+        self.name_regex = re.compile(self._author_regex)
+
+        self.runner = runner
+        self.bucket = bucket
+        self.repo_path = path
+        self.rev = rev
+
+        self.config_pairs = dict()
+        self.config_pairs['user.name'] = 'foo'
+        self.config_pairs['user.email'] = 'bar@example.com'
+
+    def __eq__(self, blame):
+        return (self.bucket == blame.bucket) \
+            and (self.repo_path == blame.repo_path) \
+            and (self.bucket == blame.bucket)
+
+    def _format_config(self):
+        git_config_params = list()
+        for key, value in sorted(self.config_pairs.items()):
+            git_config_params.append("'{config_key}={config_value}'".format(
+                config_key=key,
+                config_value=value
+            ))
+        return ' '.join(git_config_params)
+
+    def blame_args(self):
+        blame_args = ['blame', '--encoding=utf-8', '--', self.repo_path]
+        if self.rev:
+            blame_args.append(self.rev)
+        return blame_args
+
+    def blame_env(self):
+        environment = dict()
+        if self.config_pairs:
+            environment['GIT_CONFIG_PARAMETERS'] = self._format_config()
+        environment['GIT_CONFIG_NOSYSTEM'] = 'true'
+        return environment
+
+
+class TextBlameTicket(BlameTicket):
+    def __init__(self, runner, bucket, path, rev):
+        super(TextBlameTicket, self).__init__(runner, bucket, path, rev)
+
+    def __repr__(self):
+        return "<TextBlame {rev}:\"{path}\">".format(
+            rev=self.rev,
+            path=self.repo_path,
+        )
+
+    def process(self):
         try:
-            lines = self._run_git(blame_args)
+            lines = self.runner.run_git(
+                self.blame_args(),
+                git_env=self.blame_env(),
+            )
         except GitError as ge:
             if 'no such path ' in str(ge):
                 return None
@@ -157,21 +230,55 @@ class GitRunner(object):
             matches = self.name_regex.match(line)
             if matches:
                 line_author = matches.group(1).strip()
-                blame.bucket[line_author] += 1
+                self.bucket[line_author] += 1
 
 
-class BlameTicket(object):
-    '''A queued blame. This is a TODO item, really'''
+class BinaryBlameTicket(BlameTicket):
+    def __init__(self, runner, bucket, path, rev):
+        super(BinaryBlameTicket, self).__init__(runner, bucket, path, rev)
 
-    def __init__(self, bucket, path, rev):
-        self.bucket = bucket
-        self.repo_path = path
-        self.rev = rev
+        binary_git_config_dict = dict()
+        binary_git_config_dict['diff.binary_blame.textconv'] = 'xxd -p -c1'
+        binary_git_config_dict['diff.binary_blame.cachetextconv'] = 'true'
 
-    def __eq__(self, blame):
-        return (self.bucket == blame.bucket) \
-            and (self.repo_path == blame.repo_path) \
-            and (self.bucket == blame.bucket)
+        self.config_pairs.update(binary_git_config_dict)
+        self.temp_gitattributes_file = None
+
+    def __repr__(self):
+        return "<BinaryBlame {rev}:\"{path}\">".format(
+            rev=self.rev,
+            path=self.repo_path,
+        )
+
+    def process(self):
+        with tempfile.NamedTemporaryFile(delete=True) as temp_file:
+            try:
+                # We need to prepare the gitattributes file
+                temp_file.write(
+                    ("{binary_path} diff=binary_blame".format(
+                        binary_path=self.repo_path
+                    ) + os.linesep).encode('utf_8')
+                )
+                temp_file.flush()
+                self.config_pairs.update({
+                    'core.attributesfile': temp_file.name
+                })
+                lines = self.runner.run_git(
+                    self.blame_args(),
+                    git_env=self.blame_env()
+                )
+            except GitError as ge:
+                if 'no such path ' in str(ge):
+                    return None
+                else:
+                    raise ge
+
+        # TODO For now default to extracting names
+        for line in lines:
+            matches = self.name_regex.match(line)
+            if matches:
+                line_author = matches.group(1).strip()
+                self.bucket[line_author] += 1
 
 
 class Formatter(object):
@@ -350,7 +457,7 @@ class PyGuilt(object):
         self.parser.add_argument('until', nargs='?')
         self.args = None
 
-        self.blame_queue = list()
+        self.blame_jobs = list()
         # This is a port of the JS blame object. The since and until members
         # are 'buckets'
         self.since = collections.defaultdict(int)
@@ -376,22 +483,52 @@ class PyGuilt(object):
     def map_blames(self):
         """Prepares the list of blames to tabulate"""
 
-        for repo_path in self.runner.get_delta_files(
-                self.args.since, self.args.until
-                ):
+        text_files, binary_files = self.runner.get_delta_files(
+            self.args.since, self.args.until
+        )
 
-            self.blame_queue.append(
-                BlameTicket(self.since, repo_path, self.args.since)
+        for repo_path in sorted(text_files):
+            self.blame_jobs.append(
+                TextBlameTicket(
+                    self.runner,
+                    self.since,
+                    repo_path,
+                    self.args.since
+                )
             )
 
-            self.blame_queue.append(
-                BlameTicket(self.until, repo_path, self.args.until)
+            self.blame_jobs.append(
+                TextBlameTicket(
+                    self.runner,
+                    self.until,
+                    repo_path,
+                    self.args.until
+                )
+            )
+
+        for repo_path in sorted(binary_files):
+            self.blame_jobs.append(
+                BinaryBlameTicket(
+                    self.runner,
+                    self.since,
+                    repo_path,
+                    self.args.since
+                )
+            )
+
+            self.blame_jobs.append(
+                BinaryBlameTicket(
+                    self.runner,
+                    self.until,
+                    repo_path,
+                    self.args.until
+                )
             )
 
         # TODO This should be made parallel
-        for blame in self.blame_queue:
+        for blame in self.blame_jobs:
             if blame.repo_path in self.trees[blame.rev]:
-                self.runner.blame_locs(blame)
+                blame.process()
 
     def _reduce_since_blame(self, deltas, since_blame):
         author, loc_count = since_blame

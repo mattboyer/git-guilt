@@ -191,13 +191,13 @@ class GitRunnerTestCase(TestCase):
                 Mock(return_value=None)
 
         self.runner._git_toplevel = None
-        self.runner._run_git(['foo'])
+        self.runner.run_git(['foo'])
 
         mock_process.assert_called_once_with(['nosuchgit', 'foo'], stderr=-1, stdout=-1)
         mock_process.reset_mock()
 
         self.runner._git_toplevel = '/my/top/level/git/directory'
-        self.runner._run_git(['foo'])
+        self.runner.run_git(['foo'])
         mock_process.assert_called_once_with(['nosuchgit', 'foo'], cwd='/my/top/level/git/directory', stderr=-1, stdout=-1)
 
     @patch('guilt.subprocess.Popen')
@@ -206,7 +206,7 @@ class GitRunnerTestCase(TestCase):
         mock_process.return_value.communicate = \
                 Mock(return_value=(b'', b'Some error'))
 
-        self.assertRaises(guilt.GitError, self.runner._run_git, ['log'])
+        self.assertRaises(guilt.GitError, self.runner.run_git, ['log'])
 
     @patch('guilt.subprocess.Popen')
     def test_run_git_no_output_no_error(self, mock_process):
@@ -214,7 +214,7 @@ class GitRunnerTestCase(TestCase):
         mock_process.return_value.communicate = \
                 Mock(return_value=(b'', b''))
 
-        self.assertRaises(ValueError, self.runner._run_git, ['log'])
+        self.assertRaises(ValueError, self.runner.run_git, ['log'])
 
     @patch('guilt.subprocess.Popen')
     def test_run_git_non_zerp(self, mock_process):
@@ -222,19 +222,19 @@ class GitRunnerTestCase(TestCase):
         mock_process.return_value.communicate = \
                 Mock(return_value=(b'Foo', b'Bar'))
 
-        self.assertRaises(guilt.GitError, self.runner._run_git, ['log'])
+        self.assertRaises(guilt.GitError, self.runner.run_git, ['log'])
 
     @patch('guilt.subprocess.Popen')
     def test_run_git_exception(self, mock_process):
         mock_process.return_value.communicate = Mock(side_effect=OSError)
 
-        self.assertRaises(guilt.GitError, self.runner._run_git, ['log'])
+        self.assertRaises(guilt.GitError, self.runner.run_git, ['log'])
 
     @patch('guilt.subprocess.Popen')
     def test_run_git_stderr(self, mock_process):
         mock_process.return_value.communicate = Mock(return_value=(b'', b'error'))
 
-        self.assertRaises(guilt.GitError, self.runner._run_git, ['log'])
+        self.assertRaises(guilt.GitError, self.runner.run_git, ['log'])
 
     @patch('guilt.subprocess.Popen')
     def test_run_git(self, mock_process):
@@ -244,46 +244,52 @@ class GitRunnerTestCase(TestCase):
         mock_process.return_value.communicate = \
                 Mock(return_value=(b'a\nb\nc', None))
 
-        self.assertEquals(['a', 'b', 'c'], self.runner._run_git(['log']))
+        self.assertEquals(['a', 'b', 'c'], self.runner.run_git(['log']))
 
-    @patch('guilt.GitRunner._run_git')
+    @patch('guilt.GitRunner.run_git')
     def test_get_delta_files(self, mock_run_git):
-        mock_run_git.return_value = ['foo.c', 'foo.h']
+        mock_run_git.return_value = ['1	2	foo.c', '3	7	foo.h', '-	-	binary']
 
         self.assertEquals(
-            set(['foo.c', 'foo.h']),
+            (set(['foo.c', 'foo.h']), set(['binary'])),
             self.runner.get_delta_files('HEAD~1', 'HEAD')
         )
 
-    @patch('guilt.GitRunner._run_git')
+    @patch('guilt.GitRunner.run_git')
     def test_get_delta_no_files(self, mock_run_git):
         mock_run_git.return_value = []
 
         self.assertRaises(ValueError, self.runner.get_delta_files, 'HEAD~1', 'HEAD')
 
-    @patch('guilt.GitRunner._run_git')
+    @patch('guilt.GitRunner.run_git')
     def test_blame_locs(self, mock_run_git):
         mock_run_git.return_value = test.constants.blame_author_names.splitlines()
 
-        blame = Mock()
-        blame.repo_path = 'src/foo.c'
-        blame.bucket = {'Foo Bar': 0, 'Tim Pettersen': 0}
+        #blame = Mock()
+        #blame.repo_path = 'src/foo.c'
+        #blame.bucket = {'Foo Bar': 0, 'Tim Pettersen': 0}
+        runner = guilt.GitRunner()
+        bucket = {'Foo Bar': 0, 'Tim Pettersen': 0}
+        blame = guilt.TextBlameTicket(runner, bucket, 'src/foo.c', 'HEAD')
 
-        self.runner.blame_locs(blame)
+        blame.process()
         self.assertEquals(
             {'Foo Bar': 2, 'Tim Pettersen': 3},
             blame.bucket
         )
 
-    @patch('guilt.GitRunner._run_git')
+    @patch('guilt.GitRunner.run_git')
     def test_blame_locs_file_missing(self, mock_run_git):
+        # We need to mock out the first call to run_git
+        mock_run_git.return_value = '/my/arbitrary/git/root'
+        runner = guilt.GitRunner()
+
+        bucket = {'Foo Bar': 0, 'Tim Pettersen': 0}
+        blame = guilt.TextBlameTicket(runner, bucket, 'src/foo.c', 'HEAD')
+
         mock_run_git.side_effect = guilt.GitError("'git blame arbitrary path failed with:\nfatal: no such path 'src/foo.c' in HEAD")
 
-        blame = Mock()
-        blame.repo_path = 'src/foo.c'
-        blame.bucket = {'Foo Bar': 0, 'Tim Pettersen': 0}
-
-        self.assertEquals(None, self.runner.blame_locs(blame))
+        self.assertEquals(None, blame.process())
         # THe bucket is unchanged
         self.assertEquals(
             {'Foo Bar': 0, 'Tim Pettersen': 0},
@@ -339,37 +345,41 @@ class GuiltTestCase(TestCase):
         self._stdout_patch.stop()
         self._isatty_patch.stop()
 
-    @patch('guilt.GitRunner._run_git')
+    @patch('guilt.GitRunner.run_git')
     def test_populate_trees(self, mock_run_git):
         self.guilt.args = Mock(since='HEAD~4', until='HEAD~1')
+        mock_run_git.return_value = []
 
         self.guilt.populate_trees()
         self.assertEquals(
             [
-                call(['ls-tree', '-r', '--name-only', '--', 'HEAD~4']),
-                call(['ls-tree', '-r', '--name-only', '--', 'HEAD~1']),
+                call(['ls-tree', '-r', '--', 'HEAD~4']),
+                call(['ls-tree', '-r', '--', 'HEAD~1']),
             ],
             mock_run_git.mock_calls
         )
 
     @patch('guilt.GitRunner.get_delta_files')
     def test_map_blames(self, mock_get_delta):
-        mock_get_delta.return_value = ['foo.c', 'foo.h']
+        # We need to mock out the runner
+        mock_runner = Mock()
+
+        mock_get_delta.return_value = set(['foo.c', 'foo.h']), set([])
         self.guilt.args = Mock(since='HEAD~4', until='HEAD~1')
 
         self.guilt.trees['HEAD~4'] = ['foo.c', 'foo.h']
         self.guilt.trees['HEAD~1'] = ['foo.c', 'foo.h']
 
         self.guilt.map_blames()
-        self.assertEquals(4, len(self.guilt.blame_queue))
+        self.assertEquals(4, len(self.guilt.blame_jobs))
         self.assertEquals(
                 [
-                    guilt.BlameTicket(self.guilt.since, 'foo.c', 'HEAD~4'),
-                    guilt.BlameTicket(self.guilt.until, 'foo.c', 'HEAD~1'),
-                    guilt.BlameTicket(self.guilt.since, 'foo.h', 'HEAD~4'),
-                    guilt.BlameTicket(self.guilt.until, 'foo.h', 'HEAD~1'),
+                    guilt.TextBlameTicket(mock_runner, self.guilt.since, 'foo.c', 'HEAD~4'),
+                    guilt.TextBlameTicket(mock_runner, self.guilt.until, 'foo.c', 'HEAD~1'),
+                    guilt.TextBlameTicket(mock_runner, self.guilt.since, 'foo.h', 'HEAD~4'),
+                    guilt.TextBlameTicket(mock_runner, self.guilt.until, 'foo.h', 'HEAD~1'),
                 ],
-                self.guilt.blame_queue
+                self.guilt.blame_jobs
             )
 
     def test_reduce_locs(self):
@@ -391,10 +401,9 @@ class GuiltTestCase(TestCase):
             deltas
         )
 
-    @patch('guilt.GitRunner.blame_locs')
     @patch('guilt.GitRunner.get_delta_files')
-    def test_file_not_in_since_rev(self, mock_get_files, mock_blame):
-        mock_get_files.return_value = set(['in_since_and_until', 'not_in_since'])
+    def test_file_not_in_since_rev(self, mock_get_files, ):
+        mock_get_files.return_value = (set(['in_since_and_until', 'not_in_since']), set([]))
 
         # Mock up arg namespace
         self.guilt.args = Mock()
@@ -405,7 +414,6 @@ class GuiltTestCase(TestCase):
         self.guilt.trees['until'] = ['in_since_and_until', 'not_in_since']
 
         def mock_blame_logic(blame):
-            #assert False, blame
             if 'not_in_since' == blame.repo_path:
                 if 'since' == blame.rev:
                     blame.exists = False
@@ -425,29 +433,33 @@ class GuiltTestCase(TestCase):
                     blame.bucket['Bob'] += 2
                     blame.bucket['Carol'] += 2
 
-        mock_blame.side_effect = mock_blame_logic
+        # FIXME This monkey patching is ugly and should be handled through Mock
+        old_process = guilt.TextBlameTicket.process
+        try:
+            guilt.TextBlameTicket.process = mock_blame_logic
 
-        self.guilt.map_blames()
-        self.assertEquals({'Alice': 12, 'Bob': 8, 'Dave': 4}, self.guilt.since)
-        self.assertEquals({'Alice': 38, 'Bob': 7, 'Carol': 2}, self.guilt.until)
+            self.guilt.map_blames()
+            self.assertEquals({'Alice': 12, 'Bob': 8, 'Dave': 4}, self.guilt.since)
+            self.assertEquals({'Alice': 38, 'Bob': 7, 'Carol': 2}, self.guilt.until)
 
-        self.guilt.reduce_blames()
+            self.guilt.reduce_blames()
 
-        # Alice's share of the collective guilt has increased from 12 LOCs in
-        # the since rev to 38 LOCs
-        # Bob's share of the collective guilt has decreased from 8 to 7 LOCs
-        # (spread across different files)
-        # Carol's share of the collective guilt has increased from 0 in the
-        # since rev to 2 LOCs
-        expected_guilt = [guilt.Delta('Alice', 12, 38), guilt.Delta('Bob', 8, 7), guilt.Delta('Carol', 0, 2), guilt.Delta('Dave', 4, 0)]
-        expected_guilt.sort()
+            # Alice's share of the collective guilt has increased from 12 LOCs in
+            # the since rev to 38 LOCs
+            # Bob's share of the collective guilt has decreased from 8 to 7 LOCs
+            # (spread across different files)
+            # Carol's share of the collective guilt has increased from 0 in the
+            # since rev to 2 LOCs
+            expected_guilt = [guilt.Delta('Alice', 12, 38), guilt.Delta('Bob', 8, 7), guilt.Delta('Carol', 0, 2), guilt.Delta('Dave', 4, 0)]
+            expected_guilt.sort()
 
-        self.assertEquals(expected_guilt, self.guilt.loc_deltas)
+            self.assertEquals(expected_guilt, self.guilt.loc_deltas)
+        finally:
+            guilt.TextBlameTicket.process = old_process
 
-    @patch('guilt.GitRunner.blame_locs')
     @patch('guilt.GitRunner.get_delta_files')
-    def test_file_not_in_until_rev(self, mock_get_files, mock_blame):
-        mock_get_files.return_value = set(['in_since_and_until', 'not_in_until'])
+    def test_file_not_in_until_rev(self, mock_get_files):
+        mock_get_files.return_value = (set(['in_since_and_until', 'not_in_until']), set([]))
 
         # Mock up arg namespace
         self.guilt.args = Mock()
@@ -458,7 +470,6 @@ class GuiltTestCase(TestCase):
         self.guilt.trees['until'] = ['in_since_and_until']
 
         def mock_blame_logic(blame):
-            #assert False, blame
             if 'not_in_until' == blame.repo_path:
                 if 'since' == blame.rev:
                     blame.exists = True
@@ -476,26 +487,31 @@ class GuiltTestCase(TestCase):
                     blame.bucket['Alice'] += 18
                     blame.bucket['Carol'] += 2
 
-        mock_blame.side_effect = mock_blame_logic
+        # FIXME This monkey patching is ugly and should be handled through Mock
+        old_process = guilt.TextBlameTicket.process
+        try:
+            guilt.TextBlameTicket.process = mock_blame_logic
 
-        self.guilt.map_blames()
-        self.assertEquals({'Alice': 32, 'Bob': 5}, self.guilt.since)
-        self.assertEquals({'Alice': 18, 'Carol': 2}, self.guilt.until)
+            self.guilt.map_blames()
+            self.assertEquals({'Alice': 32, 'Bob': 5}, self.guilt.since)
+            self.assertEquals({'Alice': 18, 'Carol': 2}, self.guilt.until)
 
-        self.guilt.reduce_blames()
+            self.guilt.reduce_blames()
 
-        # Alice's share of the collective guilt has decreased from 32 to 18
-        # LOCs
-        # Bob's share of the collective guilt has been wiped clean!
-        # Carol's share has increased from nothing to 2
-        expected_guilt = [
-                guilt.Delta('Alice', 32, 18),
-                guilt.Delta('Bob', 5, 0),
-                guilt.Delta('Carol', 0, 2)
-            ]
-        expected_guilt.sort()
+            # Alice's share of the collective guilt has decreased from 32 to 18
+            # LOCs
+            # Bob's share of the collective guilt has been wiped clean!
+            # Carol's share has increased from nothing to 2
+            expected_guilt = [
+                    guilt.Delta('Alice', 32, 18),
+                    guilt.Delta('Bob', 5, 0),
+                    guilt.Delta('Carol', 0, 2)
+                ]
+            expected_guilt.sort()
 
-        self.assertEquals(expected_guilt, self.guilt.loc_deltas)
+            self.assertEquals(expected_guilt, self.guilt.loc_deltas)
+        finally:
+            guilt.TextBlameTicket.process = old_process
 
     # Many more testcases are required!!
     @patch('guilt.PyGuilt.populate_trees')
