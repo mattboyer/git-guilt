@@ -248,10 +248,17 @@ class GitRunnerTestCase(TestCase):
 
     @patch('guilt.subprocess.Popen')
     def test_get_delta_files(self, mock_process):
+        # The type returned by Popen.communicate() is version-specific
+        if 2 == sys.version_info[0]:
+            # Python2's str type is byte-based
+            git_output='1	2	foo.c\x003	7	foo.h\x00-	-	binary\x00'
+        elif 3 == sys.version_info[0]:
+            git_output=bytes('1	2	foo.c\x003	7	foo.h\x00-	-	binary\x00', encoding='utf_8')
+
         mock_process.return_value.returncode = 0
         mock_process.return_value.communicate = \
             Mock(
-                return_value=('1	2	foo.c\x003	7	foo.h\x00-	-	binary\x00', None)
+                return_value=(git_output, None)
             )
 
         self.assertEquals(
@@ -259,13 +266,19 @@ class GitRunnerTestCase(TestCase):
             self.runner.get_delta_files('HEAD~1', 'HEAD')
         )
 
-    #@patch('guilt.GitRunner.run_git')
     @patch('guilt.subprocess.Popen')
     def test_get_delta_no_files(self, mock_process):
+        # The type returned by Popen.communicate() is version-specific
+        if 2 == sys.version_info[0]:
+            # Python2's str type is byte-based
+            git_output = '\x00'
+        elif 3 == sys.version_info[0]:
+            git_output = bytes('\x00', encoding='utf_8')
+
         mock_process.return_value.returncode = 0
         mock_process.return_value.communicate = \
             Mock(
-                return_value=('\x00', None)
+                return_value=(git_output, None)
             )
 
         self.assertRaises(ValueError, self.runner.get_delta_files, 'HEAD~1', 'HEAD')
