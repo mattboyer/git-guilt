@@ -50,6 +50,11 @@ import struct
 class GitError(Exception):
     pass
 
+class ByteCount(int):
+    pass
+
+class LocCount(int):
+    pass
 
 class GitRunner(object):
     _toplevel_args = ['rev-parse', '--show-toplevel']
@@ -237,7 +242,13 @@ class TextBlameTicket(BlameTicket):
             matches = self.name_regex.match(line)
             if matches:
                 line_author = matches.group(1).strip()
-                self.bucket[line_author] += 1
+                if not line_author in self.bucket:
+                    self.bucket[line_author] = [LocCount(1), None]
+                else:
+                    if self.bucket[line_author][0]:
+                        self.bucket[line_author][0] += LocCount(1)
+                    else:
+                        self.bucket[line_author][0] = LocCount(1)
 
 
 class BinaryBlameTicket(BlameTicket):
@@ -285,7 +296,14 @@ class BinaryBlameTicket(BlameTicket):
             matches = self.name_regex.match(line)
             if matches:
                 line_author = matches.group(1).strip()
-                self.bucket[line_author] += 1
+                #self.bucket[line_author] += ByteCount(1)
+                if not line_author in self.bucket:
+                    self.bucket[line_author] = [None, ByteCount(1)]
+                else:
+                    if self.bucket[line_author][1]:
+                        self.bucket[line_author][1] += ByteCount(1)
+                    else:
+                        self.bucket[line_author][1] = ByteCount(1)
 
 
 class Formatter(object):
@@ -445,6 +463,17 @@ class Delta(object):
     def __ge__(self, rhs):
         return (self > rhs) or (self == rhs)
 
+class BinaryDelta(Delta):
+    def __init__(self, author, since, until):
+        super(BinaryDelta, self).__init__(author, since, until)
+
+    def __repr__(self):
+        return "<BinaryDelta \"{author}\": {count} ({since}->{until})>".format(
+            author=self.author,
+            count=self.count,
+            since=self.since_locs,
+            until=self.until_locs,
+        )
 
 class PyGuilt(object):
     """Implements crap"""
@@ -467,8 +496,13 @@ class PyGuilt(object):
         self.blame_jobs = list()
         # This is a port of the JS blame object. The since and until members
         # are 'buckets'
-        self.since = collections.defaultdict(int)
-        self.until = collections.defaultdict(int)
+
+        #self.since = collections.defaultdict(int)
+        #self.until = collections.defaultdict(int)
+
+        self.since = dict()
+        self.until = dict()
+
         self.loc_deltas = list()
 
         self.trees = dict()
@@ -538,19 +572,23 @@ class PyGuilt(object):
         for blame in self.blame_jobs:
             if blame.repo_path in self.trees[blame.rev]:
                 blame.process()
+        assert False, (self.since, self.until)
 
     def _reduce_since_blame(self, deltas, since_blame):
         author, loc_count = since_blame
         until_loc_count = self.until[author] or 0
         # LOC counts are always >=0
-        deltas.append(Delta(author, loc_count, until_loc_count))
+        if isinstance(loc_count, ByteCount):
+            deltas.append(BinaryDelta(author, loc_count, until_loc_count))
+        else:
+            deltas.append(Delta(author, loc_count, until_loc_count))
         return deltas
 
     def _reduce_until_blame(self, deltas, until_blame):
-        author, loc_count = until_blame
+        author, byte_count = until_blame
         if author not in self.since:
             # We have a new author
-            deltas.append(Delta(author, 0, loc_count))
+            deltas.append(Delta(author, 0, byte_count))
         else:
             # TODO We may need to write off some guilt
             pass
