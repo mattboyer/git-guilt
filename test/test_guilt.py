@@ -246,18 +246,27 @@ class GitRunnerTestCase(TestCase):
 
         self.assertEquals(['a', 'b', 'c'], self.runner.run_git(['log']))
 
-    @patch('guilt.GitRunner.run_git')
-    def test_get_delta_files(self, mock_run_git):
-        mock_run_git.return_value = ['1	2	foo.c', '3	7	foo.h', '-	-	binary']
+    @patch('guilt.subprocess.Popen')
+    def test_get_delta_files(self, mock_process):
+        mock_process.return_value.returncode = 0
+        mock_process.return_value.communicate = \
+            Mock(
+                return_value=('1	2	foo.c\x003	7	foo.h\x00-	-	binary\x00', None)
+            )
 
         self.assertEquals(
             (set(['foo.c', 'foo.h']), set(['binary'])),
             self.runner.get_delta_files('HEAD~1', 'HEAD')
         )
 
-    @patch('guilt.GitRunner.run_git')
-    def test_get_delta_no_files(self, mock_run_git):
-        mock_run_git.return_value = []
+    #@patch('guilt.GitRunner.run_git')
+    @patch('guilt.subprocess.Popen')
+    def test_get_delta_no_files(self, mock_process):
+        mock_process.return_value.returncode = 0
+        mock_process.return_value.communicate = \
+            Mock(
+                return_value=('\x00', None)
+            )
 
         self.assertRaises(ValueError, self.runner.get_delta_files, 'HEAD~1', 'HEAD')
 
