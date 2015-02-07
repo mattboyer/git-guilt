@@ -126,13 +126,16 @@ class GitRunner(object):
         text_files = set()
         binary_files = set()
 
-        diff_args = ['diff', '--numstat', since_rev]
+        diff_args = ['diff', '-z', '--numstat', since_rev]
         if until_rev:
             diff_args.append(until_rev)
 
         num_stat_lines = self.run_git(diff_args)
+        num_stat_lines = num_stat_lines[0].split(chr(0))
         if 0 == len(num_stat_lines):
             raise ValueError()
+        if not num_stat_lines[-1]:
+            num_stat_lines = num_stat_lines[:-1]
 
         for num_stat_line in num_stat_lines:
             (additions, deletions, file_name) = num_stat_line.split('\t')
@@ -224,6 +227,11 @@ class TextBlameTicket(BlameTicket):
                 return None
             else:
                 raise ge
+        except ValueError as ve:
+            # Not having any output is actually OK if we have an empty file
+            if 'no output' in str(ve).lower():
+                return
+
 
         # TODO For now default to extracting names
         for line in lines:
@@ -490,7 +498,6 @@ class PyGuilt(object):
         for repo_path in sorted(text_files):
             # FIXME Non-latin characters may appear in repo_path - their
             # encoding should be handled sensibly
-            print("Adding text blames for %s" % repo_path)
             self.blame_jobs.append(
                 TextBlameTicket(
                     self.runner,
