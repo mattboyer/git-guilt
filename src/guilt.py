@@ -488,6 +488,9 @@ class PyGuilt(object):
         )
 
         for repo_path in sorted(text_files):
+            # FIXME Non-latin characters may appear in repo_path - their
+            # encoding should be handled sensibly
+            print("Adding text blames for %s" % repo_path)
             self.blame_jobs.append(
                 TextBlameTicket(
                     self.runner,
