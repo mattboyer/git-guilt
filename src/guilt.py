@@ -232,7 +232,6 @@ class TextBlameTicket(BlameTicket):
             if 'no output' in str(ve).lower():
                 return
 
-
         # TODO For now default to extracting names
         for line in lines:
             matches = self.name_regex.match(line)
