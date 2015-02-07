@@ -15,6 +15,8 @@ script:
         - pep8 src
         - nosetests test/ --with-coverage --cover-package=guilt
         - pylint src/*.py
+        - cd git_test_repo
+        - python ../src/guilt.py HEAD~3 HEAD
 
 after_success:
         coveralls
