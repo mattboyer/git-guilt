@@ -45,6 +45,7 @@ import sys
 import fcntl
 import termios
 import struct
+import unicodedata
 
 
 class GitError(Exception):
@@ -300,10 +301,16 @@ class Formatter(object):
         self._is_tty = os.isatty(sys.stdout.fileno())
         self._tty_width = self._get_tty_width()
 
+    @staticmethod
+    def term_width(unicode_string):
+        wide = 'WFA'
+        return sum([2 if unicodedata.east_asian_width(c) in wide else 1
+                    for c in unicode_string])
+
     @property
     def longest_name(self):
         return len(max(
-            self.deltas, key=lambda d: len(d.author)
+            self.deltas, key=lambda d: Formatter.term_width(d.author)
         ).author)
 
     @property
@@ -390,7 +397,10 @@ class Formatter(object):
                 bargraph = Formatter._red + bargraph + Formatter._normal
 
         return u" {author} | {count} {bargraph}".format(
-            author=delta.author.ljust(self.longest_name),
+            author=delta.author.ljust(
+                self.longest_name - Formatter.term_width(delta.author) +
+                len(delta.author)
+            ),
             count=str(delta.count).rjust(self.longest_count),
             bargraph=bargraph,
         )
