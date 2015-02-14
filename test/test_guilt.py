@@ -153,7 +153,7 @@ class ArgTestCase(TestCase):
         self.assertRaises(guilt.GitError, self.guilt.process_args)
 
         self.assertEquals(1, self.guilt.run())
-        self.assertEquals('bad args\n', mock_stderr.getvalue())
+        self.assertEquals('Invalid arguments\n', mock_stderr.getvalue())
 
         stderr_patch.stop()
 
@@ -396,17 +396,17 @@ class GuiltTestCase(TestCase):
         self.assertEquals(4, len(self.guilt.blame_jobs))
         self.assertEquals(
                 [
-                    guilt.TextBlameTicket(mock_runner, self.guilt.since, 'foo.c', 'HEAD~4'),
-                    guilt.TextBlameTicket(mock_runner, self.guilt.until, 'foo.c', 'HEAD~1'),
-                    guilt.TextBlameTicket(mock_runner, self.guilt.since, 'foo.h', 'HEAD~4'),
-                    guilt.TextBlameTicket(mock_runner, self.guilt.until, 'foo.h', 'HEAD~1'),
+                    guilt.TextBlameTicket(mock_runner, self.guilt.loc_ownership_since, 'foo.c', 'HEAD~4'),
+                    guilt.TextBlameTicket(mock_runner, self.guilt.loc_ownership_until, 'foo.c', 'HEAD~1'),
+                    guilt.TextBlameTicket(mock_runner, self.guilt.loc_ownership_since, 'foo.h', 'HEAD~4'),
+                    guilt.TextBlameTicket(mock_runner, self.guilt.loc_ownership_until, 'foo.h', 'HEAD~1'),
                 ],
                 self.guilt.blame_jobs
             )
 
     def test_reduce_locs(self):
-        self.guilt.since = {'Alice': 5, 'Bob': 3, 'Carol': 4}
-        self.guilt.until = {'Alice': 6, 'Bob': 6, 'Carol': 2, 'Dave': 1, 'Ellen': 2}
+        self.guilt.loc_ownership_since = {'Alice': 5, 'Bob': 3, 'Carol': 4}
+        self.guilt.loc_ownership_until = {'Alice': 6, 'Bob': 6, 'Carol': 2, 'Dave': 1, 'Ellen': 2}
 
         expected_deltas = [
                 guilt.Delta(until=6, since=3, author='Bob'),
@@ -416,11 +416,11 @@ class GuiltTestCase(TestCase):
                 guilt.Delta(until=2, since=4, author='Carol'),
                 ]
 
-        deltas = self.guilt.reduce_blames()
+        self.guilt.reduce_blames()
 
         self.assertEquals(
             expected_deltas,
-            deltas
+            self.guilt.loc_deltas
         )
 
     @patch('guilt.GitRunner.get_delta_files')
@@ -461,8 +461,8 @@ class GuiltTestCase(TestCase):
             guilt.TextBlameTicket.process = mock_blame_logic
 
             self.guilt.map_blames()
-            self.assertEquals({'Alice': 12, 'Bob': 8, 'Dave': 4}, self.guilt.since)
-            self.assertEquals({'Alice': 38, 'Bob': 7, 'Carol': 2}, self.guilt.until)
+            self.assertEquals({'Alice': 12, 'Bob': 8, 'Dave': 4}, self.guilt.loc_ownership_since)
+            self.assertEquals({'Alice': 38, 'Bob': 7, 'Carol': 2}, self.guilt.loc_ownership_until)
 
             self.guilt.reduce_blames()
 
@@ -515,8 +515,8 @@ class GuiltTestCase(TestCase):
             guilt.TextBlameTicket.process = mock_blame_logic
 
             self.guilt.map_blames()
-            self.assertEquals({'Alice': 32, 'Bob': 5}, self.guilt.since)
-            self.assertEquals({'Alice': 18, 'Carol': 2}, self.guilt.until)
+            self.assertEquals({'Alice': 32, 'Bob': 5}, self.guilt.loc_ownership_since)
+            self.assertEquals({'Alice': 18, 'Carol': 2}, self.guilt.loc_ownership_until)
 
             self.guilt.reduce_blames()
 
@@ -549,7 +549,8 @@ class GuiltTestCase(TestCase):
         mock_pop_trees.assert_called_once_with()
         mock_map.assert_called_once_with()
         mock_reduce.assert_called_once_with()
-        mock_show.assert_called_once_with()
+
+        self.assertEquals(2, len(mock_show.mock_calls))
 
 
 class FormatterTestCase(TestCase):
