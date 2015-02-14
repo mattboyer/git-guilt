@@ -609,8 +609,9 @@ class FormatterTestCase(TestCase):
 
         mock_stdout = stdout_patch.start()
 
-        self.formatter.deltas.append(guilt.Delta('short', 30, 45))
-        self.formatter.deltas.append(guilt.Delta('Very Long Name', 10, 7))
+
+        self.formatter.deltas.append(guilt.Delta(u'short', 30, 45))
+        self.formatter.deltas.append(guilt.Delta(u'Very Long Name', 10, 7))
 
         self.formatter.show_guilt_stats()
         self.assertEquals(''' short          | 15 +++++++++++++++
