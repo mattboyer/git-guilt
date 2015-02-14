@@ -433,6 +433,11 @@ class Formatter(object):
 
 
 class Delta(object):
+    '''
+    Keeps track of an author's share in the ownership of text file LOCs across
+    all files in the repository.
+    '''
+
     def __init__(self, author, since, until):
         self.author = author
         self.since_locs = since
@@ -483,6 +488,11 @@ class Delta(object):
 
 
 class BinaryDelta(Delta):
+    '''
+    Keeps track of an author's share in the ownership of binary file bytes
+    across all files in the repository.
+    '''
+
     def __init__(self, author, since, until):
         super(BinaryDelta, self).__init__(author, since, until)
 
@@ -499,8 +509,11 @@ class PyGuilt(object):
     """Implements crap"""
 
     def __init__(self):
+        # Helper objects
         self.runner = GitRunner()
-        # This should probably be spun out
+        self.formatter = Formatter(self.loc_deltas)
+
+        # TODO This should probably be spun out into its own method
         self.parser = argparse.ArgumentParser(prog='git guilt')
         self.parser.add_argument(
             '-w',
@@ -513,24 +526,36 @@ class PyGuilt(object):
         self.parser.add_argument('until', nargs='?')
         self.args = None
 
+        # Job queue for the 'git blame' executions
         self.blame_jobs = list()
 
         # This is a port of the JS blame object. The since and until members
         # are 'buckets'
+        # XXX So what are the keys? And what are the values????
         self.since = dict()
         self.until = dict()
 
+        # XXX WTF is this?
         self.loc_deltas = list()
 
+        # Dictionary
+        # - keys are the "since" and "until" Git revision pointers
+        # given on the CLI
+        # - values are sets of relative paths (as unicode strings) for all
+        # regular files present in the repo for that revision
         self.trees = dict()
-        self.formatter = Formatter(self.loc_deltas)
 
     def process_args(self):
         self.args = self.parser.parse_args()
         if not (self.args.since and self.args.until):
-            raise GitError('bad args')
+            raise GitError('Invalid arguments')
 
     def populate_trees(self):
+        '''
+        Populates self.tree with the set of regular files present in the
+        version of the repo described by self.args.since and self.args.until
+        '''
+
         self.trees[self.args.since] = self.runner.populate_tree(
             self.args.since
         )
