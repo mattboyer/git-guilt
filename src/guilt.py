@@ -50,11 +50,14 @@ import struct
 class GitError(Exception):
     pass
 
+
 class ByteCount(int):
     pass
 
+
 class LocCount(int):
     pass
+
 
 class GitRunner(object):
     _toplevel_args = ['rev-parse', '--show-toplevel']
@@ -125,6 +128,13 @@ class GitRunner(object):
         '''
         Returns a list of files which have been modified between since_rev and
         until_rev.
+
+        :param since_rev: the old Git revision
+        :type since_rev: str
+        :param until_rev: the new Git revision
+        :type until_rev: str
+        :return: A `(text_files, binary_files)` tuple
+        :rtype: tuple
         '''
 
         # We wanna take note of binary files and process them differently
@@ -222,6 +232,10 @@ class TextBlameTicket(BlameTicket):
         )
 
     def process(self):
+        '''
+        Updates the bucket with a tally of the ownership of LOCs in this file
+        '''
+
         try:
             lines = self.runner.run_git(
                 self.blame_args(),
@@ -242,7 +256,7 @@ class TextBlameTicket(BlameTicket):
             matches = self.name_regex.match(line)
             if matches:
                 line_author = matches.group(1).strip()
-                if not line_author in self.bucket:
+                if line_author not in self.bucket:
                     self.bucket[line_author] = [LocCount(1), None]
                 else:
                     if self.bucket[line_author][0]:
@@ -269,6 +283,11 @@ class BinaryBlameTicket(BlameTicket):
         )
 
     def process(self):
+        '''
+        Updates the bucket with a tally of the ownership of bytes in this
+        binary file
+        '''
+
         with tempfile.NamedTemporaryFile(delete=True) as temp_file:
             try:
                 # We need to prepare the gitattributes file
@@ -296,8 +315,7 @@ class BinaryBlameTicket(BlameTicket):
             matches = self.name_regex.match(line)
             if matches:
                 line_author = matches.group(1).strip()
-                #self.bucket[line_author] += ByteCount(1)
-                if not line_author in self.bucket:
+                if line_author not in self.bucket:
                     self.bucket[line_author] = [None, ByteCount(1)]
                 else:
                     if self.bucket[line_author][1]:
@@ -463,6 +481,7 @@ class Delta(object):
     def __ge__(self, rhs):
         return (self > rhs) or (self == rhs)
 
+
 class BinaryDelta(Delta):
     def __init__(self, author, since, until):
         super(BinaryDelta, self).__init__(author, since, until)
@@ -474,6 +493,7 @@ class BinaryDelta(Delta):
             since=self.since_locs,
             until=self.until_locs,
         )
+
 
 class PyGuilt(object):
     """Implements crap"""
@@ -494,12 +514,9 @@ class PyGuilt(object):
         self.args = None
 
         self.blame_jobs = list()
+
         # This is a port of the JS blame object. The since and until members
         # are 'buckets'
-
-        #self.since = collections.defaultdict(int)
-        #self.until = collections.defaultdict(int)
-
         self.since = dict()
         self.until = dict()
 
