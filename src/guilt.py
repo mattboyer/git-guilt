@@ -52,6 +52,14 @@ class GitError(Exception):
     pass
 
 
+class ByteCount(int):
+    pass
+
+
+class LocCount(int):
+    pass
+
+
 class GitRunner(object):
     _toplevel_args = ['rev-parse', '--show-toplevel']
     _git_executable = 'git'
@@ -121,6 +129,13 @@ class GitRunner(object):
         '''
         Returns a list of files which have been modified between since_rev and
         until_rev.
+
+        :param since_rev: the old Git revision
+        :type since_rev: str
+        :param until_rev: the new Git revision
+        :type until_rev: str
+        :return: A `(text_files, binary_files)` tuple
+        :rtype: tuple
         '''
 
         # We wanna take note of binary files and process them differently
@@ -218,6 +233,10 @@ class TextBlameTicket(BlameTicket):
         )
 
     def process(self):
+        '''
+        Updates the bucket with a tally of the ownership of LOCs in this file
+        '''
+
         try:
             lines = self.runner.run_git(
                 self.blame_args(),
@@ -259,6 +278,11 @@ class BinaryBlameTicket(BlameTicket):
         )
 
     def process(self):
+        '''
+        Updates the bucket with a tally of the ownership of bytes in this
+        binary file
+        '''
+
         with tempfile.NamedTemporaryFile(delete=True) as temp_file:
             try:
                 # We need to prepare the gitattributes file
@@ -383,6 +407,12 @@ class Formatter(object):
         return scaled_width
 
     def format(self, delta):
+        if isinstance(delta, BinaryDelta):
+            return self._format_byte_delta(delta)
+        elif isinstance(delta, Delta):
+            return self._format_loc_delta(delta)
+
+    def _format_loc_delta(self, delta):
         bargraph = str()
 
         graph_width = self._scale_bargraph(abs(delta.count))
@@ -405,8 +435,21 @@ class Formatter(object):
             bargraph=bargraph,
         )
 
+    def _format_byte_delta(self, delta):
+        return u" {author} | {count} ({since}->{until}) bytes".format(
+            author=delta.author.ljust(self.longest_name),
+            count=str(delta.count).rjust(self.longest_count),
+            since=delta.since_locs,
+            until=delta.until_locs,
+        )
+
 
 class Delta(object):
+    '''
+    Keeps track of an author's share in the ownership of text file LOCs across
+    all files in the repository.
+    '''
+
     def __init__(self, author, since, until):
         self.author = author
         self.since_locs = since
@@ -456,12 +499,29 @@ class Delta(object):
         return (self > rhs) or (self == rhs)
 
 
+class BinaryDelta(Delta):
+    '''
+    Keeps track of an author's share in the ownership of binary file bytes
+    across all files in the repository.
+    '''
+
+    def __init__(self, author, since, until):
+        super(BinaryDelta, self).__init__(author, since, until)
+
+    def __repr__(self):
+        return "<BinaryDelta \"{author}\": {count} ({since}->{until})>".format(
+            author=self.author,
+            count=self.count,
+            since=self.since_locs,
+            until=self.until_locs,
+        )
+
+
 class PyGuilt(object):
     """Implements crap"""
 
     def __init__(self):
-        self.runner = GitRunner()
-        # This should probably be spun out
+        # TODO This should probably be spun out into its own method
         self.parser = argparse.ArgumentParser(prog='git guilt')
         self.parser.add_argument(
             '-w',
@@ -474,22 +534,50 @@ class PyGuilt(object):
         self.parser.add_argument('until', nargs='?')
         self.args = None
 
+        # Job queue for the 'git blame' executions
         self.blame_jobs = list()
+
         # This is a port of the JS blame object. The since and until members
         # are 'buckets'
-        self.since = collections.defaultdict(int)
-        self.until = collections.defaultdict(int)
-        self.loc_deltas = list()
+        # Note: binary and text ownership are fundamentally different (you
+        # can't compare LOCs and individual bytes) and so should be accounted
+        # for separately
+        # XXX So what are the keys? And what are the values????
+        self.loc_ownership_since = collections.defaultdict(int)
+        self.loc_ownership_until = collections.defaultdict(int)
 
+        self.byte_ownership_since = collections.defaultdict(int)
+        self.byte_ownership_until = collections.defaultdict(int)
+
+        # The relative change in ownership of text file LOCs/binary file byte
+        # for every author. The objects in these lists can be sorted sensibly
+        self.loc_deltas = list()
+        self.byte_deltas = list()
+
+        # Dictionary
+        # - keys are the "since" and "until" Git revision pointers
+        # given on the CLI
+        # - values are sets of relative paths (as unicode strings) for all
+        # regular files present in the repo for that revision
         self.trees = dict()
-        self.formatter = Formatter(self.loc_deltas)
+
+        # Helper objects
+        self.runner = GitRunner()
+        # FIXME Why do we need this? and what about byte_deltas
+        self.loc_formatter = Formatter(self.loc_deltas)
+        self.byte_formatter = Formatter(self.byte_deltas)
 
     def process_args(self):
         self.args = self.parser.parse_args()
         if not (self.args.since and self.args.until):
-            raise GitError('bad args')
+            raise GitError('Invalid arguments')
 
     def populate_trees(self):
+        '''
+        Populates self.tree with the set of regular files present in the
+        version of the repo described by self.args.since and self.args.until
+        '''
+
         self.trees[self.args.since] = self.runner.populate_tree(
             self.args.since
         )
@@ -498,7 +586,13 @@ class PyGuilt(object):
         )
 
     def map_blames(self):
-        """Prepares the list of blames to tabulate"""
+        '''
+        Discovers the set of files that have changed between the Git revision
+        pointed to by the `since` CLI arg and the `until` Git revision
+
+        For each file, adds a blame ticker to self.blame_jobs of the
+        appropriate type (text or binary) for the since and until revision.
+        '''
 
         text_files, binary_files = self.runner.get_delta_files(
             self.args.since, self.args.until
@@ -510,7 +604,7 @@ class PyGuilt(object):
             self.blame_jobs.append(
                 TextBlameTicket(
                     self.runner,
-                    self.since,
+                    self.loc_ownership_since,
                     repo_path,
                     self.args.since
                 )
@@ -519,7 +613,7 @@ class PyGuilt(object):
             self.blame_jobs.append(
                 TextBlameTicket(
                     self.runner,
-                    self.until,
+                    self.loc_ownership_until,
                     repo_path,
                     self.args.until
                 )
@@ -529,7 +623,7 @@ class PyGuilt(object):
             self.blame_jobs.append(
                 BinaryBlameTicket(
                     self.runner,
-                    self.since,
+                    self.byte_ownership_since,
                     repo_path,
                     self.args.since
                 )
@@ -538,49 +632,78 @@ class PyGuilt(object):
             self.blame_jobs.append(
                 BinaryBlameTicket(
                     self.runner,
-                    self.until,
+                    self.byte_ownership_until,
                     repo_path,
                     self.args.until
                 )
             )
 
+        # Process all blame tickets in the self.blame_jobs queue
         # TODO This should be made parallel
         for blame in self.blame_jobs:
+            # FIXME This should be moved to the job enqueueing routine -
+            # there's no point having jobs we're not gonna process
             if blame.repo_path in self.trees[blame.rev]:
                 blame.process()
 
-    def _reduce_since_blame(self, deltas, since_blame):
+    def _reduce_since_text_blame(self, deltas, since_blame):
         author, loc_count = since_blame
-        until_loc_count = self.until[author] or 0
-        # LOC counts are always >=0
+        until_loc_count = self.loc_ownership_until[author] or 0
         deltas.append(Delta(author, loc_count, until_loc_count))
         return deltas
 
-    def _reduce_until_blame(self, deltas, until_blame):
+    def _reduce_since_byte_blame(self, deltas, since_blame):
+        author, byte_count = since_blame
+        until_byte_count = self.byte_ownership_until[author] or 0
+        deltas.append(BinaryDelta(author, byte_count, until_byte_count))
+        return deltas
+
+    def _reduce_until_text_blame(self, deltas, until_blame):
         author, loc_count = until_blame
-        if author not in self.since:
+        if author not in self.loc_ownership_since:
             # We have a new author
             deltas.append(Delta(author, 0, loc_count))
-        else:
-            # TODO We may need to write off some guilt
-            pass
+        return deltas
+
+    def _reduce_until_byte_blame(self, deltas, until_blame):
+        author, byte_count = until_blame
+        if author not in self.byte_ownership_since:
+            # We have a new author
+            deltas.append(BinaryDelta(author, 0, byte_count))
         return deltas
 
     def reduce_blames(self):
+        self._reduce_text_blames()
+        self._reduce_byte_blames()
+
+    def _reduce_text_blames(self):
         self.loc_deltas = functools.reduce(
-            self._reduce_since_blame,
-            self.since.items(),
+            self._reduce_since_text_blame,
+            self.loc_ownership_since.items(),
             self.loc_deltas
         )
 
         self.loc_deltas = functools.reduce(
-            self._reduce_until_blame,
-            self.until.items(),
+            self._reduce_until_text_blame,
+            self.loc_ownership_until.items(),
             self.loc_deltas
         )
-
         self.loc_deltas.sort()
-        return self.loc_deltas
+
+    def _reduce_byte_blames(self):
+        self.byte_deltas = functools.reduce(
+            self._reduce_since_byte_blame,
+            self.byte_ownership_since.items(),
+            self.byte_deltas
+        )
+
+        self.byte_deltas = functools.reduce(
+            self._reduce_until_byte_blame,
+            self.byte_ownership_until.items(),
+            self.byte_deltas
+        )
+
+        self.byte_deltas.sort()
 
     def run(self):
         try:
@@ -593,7 +716,8 @@ class PyGuilt(object):
 
             self.map_blames()
             self.reduce_blames()
-            self.formatter.show_guilt_stats()
+            self.loc_formatter.show_guilt_stats()
+            self.byte_formatter.show_guilt_stats()
             return 0
 
 
