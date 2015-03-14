@@ -63,7 +63,7 @@ class IntegrationTests(TestCase):
 
     def prepare_expected_string(self, input):
         if 2 == sys.version_info[0]:
-            converted = str(input).encode('utf_8')
+            converted = unicode(input).encode('utf_8')
         elif 3 == sys.version_info[0]:
             converted = bytes(input, encoding='utf_8')
         return converted
@@ -72,7 +72,7 @@ class IntegrationTests(TestCase):
         o, e = self.run_cli('-h')
         self.assertEquals(b'', e)
 
-        expected_stdout = '''usage: git guilt [-h] [-w] [-e] [since] [until]
+        expected_stdout = u'''usage: git guilt [-h] [-w] [-e] [since] [until]
 
 positional arguments:
   since
@@ -89,7 +89,7 @@ optional arguments:
     def test_01(self):
         o, e = self.run_cli('49288d8af7984ad62073d447fd94531c0123034f f410635b54ad97bbeb0d28c8ac32ada55d92fcf2')
         self.assertEquals(b'', e)
-        expected_stdout = ''' 张三李四      |  2 ++
+        expected_stdout = u''' 张三李四      |  2 ++
  Latin McAscii | -4 ----
 '''
         self.assertEquals(self.prepare_expected_string(expected_stdout), o)
