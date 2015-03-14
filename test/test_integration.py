@@ -63,7 +63,7 @@ class IntegrationTests(TestCase):
 
     def prepare_expected_string(self, input):
         if 2 == sys.version_info[0]:
-            converted = str(input)
+            converted = str(input).encode('utf_8')
         elif 3 == sys.version_info[0]:
             converted = bytes(input, encoding='utf_8')
         return converted
