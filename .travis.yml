@@ -13,8 +13,10 @@ install:
 
 script:
         - pep8 src
-        - nosetests test/ --with-coverage --cover-package=guilt
         - pylint src/*.py
+        - nosetests test/test_guilt.py --with-coverage --cover-package=guilt
+        - pip install .
+        - nosetests test/test_integration.py
         - cd git_test_repo
         - python ../src/guilt.py HEAD~3 HEAD
 
