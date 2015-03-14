@@ -88,7 +88,7 @@ class GitRunner(object):
         if self._git_toplevel:
             popen_kwargs['cwd'] = self._git_toplevel
 
-        git_process = subprocess.Popen(  # pylint: disable=W0142
+        git_process = subprocess.Popen(
             [GitRunner._git_executable] + args,
             **popen_kwargs
         )
