@@ -147,14 +147,3 @@ optional arguments:
  张三李四      |  11 (0->11) bytes
 '''
         self.assertEquals(self.prepare_expected_string(expected_stdout), o)
-
-    def test_07(self):
-        o, e = self.run_cli('b6633ac3fc3177b8d293c2e6ab2f5e576ee70977 49288d8af7984ad62073d447fd94531c0123034f')
-        self.assertEquals(b'', e)
-        expected_stdout = u''' 张三李四      |  2 ++
- Latin McAscii | -4 ----
-
- Latin McAscii | 501 (0->501) bytes
- 张三李四      |  11 (0->11) bytes
-'''
-        self.assertEquals(self.prepare_expected_string(expected_stdout), o)
