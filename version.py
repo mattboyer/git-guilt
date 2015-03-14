@@ -40,11 +40,19 @@ from subprocess import Popen, PIPE
 
 def call_git_describe(abbrev=4):
     try:
-        p = Popen(['git', 'describe', '--abbrev=%d' % abbrev],
+        p = Popen(['git', 'describe', '--long', '--abbrev=%d' % abbrev],
                   stdout=PIPE, stderr=PIPE)
         p.stderr.close()
         line = p.stdout.readlines()[0]
-        return line.strip().decode('utf_8')
+        #return line.strip().decode('utf_8')
+        tag = line.strip().decode('utf_8')
+        release, commits_ahead, hash = tag.split('-')
+        commits_ahead = int(commits_ahead)
+        if commits_ahead:
+            return "{t}.dev{c}".format(t=release, c=commits_ahead)
+        else:
+            return release
+
 
     except:
         return None
