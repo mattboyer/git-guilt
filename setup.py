@@ -5,7 +5,7 @@ setup(
     name='git-guilt',
     version=version.get_git_version(),
     url='https://github.com/mattboyer/py_git-guilt',
-    description='Foo',
+    description='A Python port of Tim Pettersen\'s git-guilt',
     author='Matt Boyer',
     author_email='mboyer@sdf.org',
     license='BSD',
