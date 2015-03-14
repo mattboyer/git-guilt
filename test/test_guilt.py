@@ -550,7 +550,7 @@ class GuiltTestCase(TestCase):
         mock_map.assert_called_once_with()
         mock_reduce.assert_called_once_with()
 
-        self.assertEquals(2, len(mock_show.mock_calls))
+        self.assertEquals(1, len(mock_show.mock_calls))
 
 
 class FormatterTestCase(TestCase):
