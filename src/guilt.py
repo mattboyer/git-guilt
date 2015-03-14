@@ -52,14 +52,6 @@ class GitError(Exception):
     pass
 
 
-class ByteCount(int):
-    pass
-
-
-class LocCount(int):
-    pass
-
-
 class GitRunner(object):
     _toplevel_args = ['rev-parse', '--show-toplevel']
     _git_executable = 'git'
@@ -518,31 +510,21 @@ class BinaryDelta(Delta):
 
 
 class PyGuilt(object):
-    """Implements crap"""
+    '''
+    Implements the ownership tracking logic
+    '''
 
     def __init__(self):
-        # TODO This should probably be spun out into its own method
-        self.parser = argparse.ArgumentParser(prog='git guilt')
-        self.parser.add_argument(
-            '-w',
-            '--whitespace',
-            action='store_true',
-        )
-        self.parser.add_argument('-e', '--email', action='store_true')
-        self.parser.add_argument('since', nargs='?')
-        # Surely until should default to something sensible
-        self.parser.add_argument('until', nargs='?')
+        self.parser = PyGuilt.setup_argparser()
         self.args = None
 
         # Job queue for the 'git blame' executions
         self.blame_jobs = list()
 
-        # This is a port of the JS blame object. The since and until members
-        # are 'buckets'
+        # Set up ownership buckets for the "since" and "until" revisions
         # Note: binary and text ownership are fundamentally different (you
         # can't compare LOCs and individual bytes) and so should be accounted
         # for separately
-        # XXX So what are the keys? And what are the values????
         self.loc_ownership_since = collections.defaultdict(int)
         self.loc_ownership_until = collections.defaultdict(int)
 
@@ -563,9 +545,26 @@ class PyGuilt(object):
 
         # Helper objects
         self.runner = GitRunner()
-        # FIXME Why do we need this? and what about byte_deltas
         self.loc_formatter = Formatter(self.loc_deltas)
         self.byte_formatter = Formatter(self.byte_deltas)
+
+    @staticmethod
+    def setup_argparser():
+        '''
+        Returns an instance of argparse.ArgumentParser for git-guilt
+        '''
+
+        parser = argparse.ArgumentParser(prog='git guilt')
+        parser.add_argument(
+            '-w',
+            '--whitespace',
+            action='store_true',
+        )
+        parser.add_argument('-e', '--email', action='store_true')
+        parser.add_argument('since', nargs='?')
+        # Surely until should default to something sensible
+        parser.add_argument('until', nargs='?')
+        return parser
 
     def process_args(self):
         self.args = self.parser.parse_args()
@@ -590,7 +589,7 @@ class PyGuilt(object):
         Discovers the set of files that have changed between the Git revision
         pointed to by the `since` CLI arg and the `until` Git revision
 
-        For each file, adds a blame ticker to self.blame_jobs of the
+        For each file, adds a blame ticket to self.blame_jobs of the
         appropriate type (text or binary) for the since and until revision.
         '''
 
@@ -713,7 +712,6 @@ class PyGuilt(object):
             return 1
         else:
             self.populate_trees()
-
             self.map_blames()
             self.reduce_blames()
             self.loc_formatter.show_guilt_stats()
