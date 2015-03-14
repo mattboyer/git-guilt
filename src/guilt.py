@@ -88,7 +88,7 @@ class GitRunner(object):
         if self._git_toplevel:
             popen_kwargs['cwd'] = self._git_toplevel
 
-        git_process = subprocess.Popen(  # pylint: disable=W0142
+        git_process = subprocess.Popen(
             [GitRunner._git_executable] + args,
             **popen_kwargs
         )
@@ -430,7 +430,10 @@ class Formatter(object):
 
     def _format_byte_delta(self, delta):
         return u" {author} | {count} ({since}->{until}) bytes".format(
-            author=delta.author.ljust(self.longest_name),
+            author=delta.author.ljust(
+                self.longest_name - Formatter.term_width(delta.author) +
+                len(delta.author)
+            ),
             count=str(delta.count).rjust(self.longest_count),
             since=delta.since_locs,
             until=delta.until_locs,
@@ -714,7 +717,10 @@ class PyGuilt(object):
             self.map_blames()
             self.reduce_blames()
             self.loc_formatter.show_guilt_stats()
-            self.byte_formatter.show_guilt_stats()
+            if self.byte_deltas:
+                # Insert an empty line before binary file guilt stats are shown
+                Formatter.terminal_output('', sys.stdout)
+                self.byte_formatter.show_guilt_stats()
             return 0
 
 
