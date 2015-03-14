@@ -348,7 +348,8 @@ class Formatter(object):
     @staticmethod
     def terminal_output(content, stream):
         if 2 == sys.version_info[0]:
-            # TODO We need to do The Right Thing wrt. terminal encoding
+            # TODO We need to do The Right Thing wrt. terminal encoding. It's
+            # not necessarily going to be UTF-8!
             print(content.encode('utf_8'), file=stream)
         elif 3 == sys.version_info[0]:
             assert isinstance(content, str)
@@ -598,8 +599,6 @@ class PyGuilt(object):
         )
 
         for repo_path in sorted(text_files):
-            # FIXME Non-latin characters may appear in repo_path - their
-            # encoding should be handled sensibly
             self.blame_jobs.append(
                 TextBlameTicket(
                     self.runner,
