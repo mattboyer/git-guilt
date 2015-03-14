@@ -1,8 +1,9 @@
 from setuptools import setup, find_packages
+import version
 
 setup(
     name='git-guilt',
-    version='0.10.dev1',
+    version=version.get_git_version(),
     url='https://github.com/mattboyer/py_git-guilt',
     description='Foo',
     author='Matt Boyer',
