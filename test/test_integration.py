@@ -93,3 +93,57 @@ optional arguments:
  Latin McAscii | -4 ----
 '''
         self.assertEquals(self.prepare_expected_string(expected_stdout), o)
+
+    def test_02(self):
+        o, e = self.run_cli('49288d8af7984ad62073d447fd94531c0123034f 45c19e994880fda771c03a98e8f38cce877cfe91')
+        self.assertEquals(b'', e)
+        expected_stdout = u''' 张三李四      |  2 ++
+ Latin McAscii | -4 ----
+
+ Latin McAscii | 512 (0->512) bytes
+'''
+        self.assertEquals(self.prepare_expected_string(expected_stdout), o)
+
+    def test_03(self):
+        o, e = self.run_cli('49288d8af7984ad62073d447fd94531c0123034f b6633ac3fc3177b8d293c2e6ab2f5e576ee70977')
+        self.assertEquals(b'', e)
+        expected_stdout = u''' 张三李四      |  2 ++
+ Latin McAscii | -4 ----
+
+ Latin McAscii | 501 (0->501) bytes
+ 张三李四      |  11 (0->11) bytes
+'''
+        self.assertEquals(self.prepare_expected_string(expected_stdout), o)
+
+    def test_04(self):
+        # From f4106 to 45c1, the only transfer that's occurred is the new
+        # bytes authored by LMcA - the in-line changes performed by that author
+        # do not impact their overall ownership of the repository
+        o, e = self.run_cli('f410635b54ad97bbeb0d28c8ac32ada55d92fcf2 45c19e994880fda771c03a98e8f38cce877cfe91')
+        self.assertEquals(b'', e)
+        expected_stdout = u'''
+ Latin McAscii | 512 (0->512) bytes
+'''
+        self.assertEquals(self.prepare_expected_string(expected_stdout), o)
+
+    def test_05(self):
+        # From f4106 to b6633
+        o, e = self.run_cli('f410635b54ad97bbeb0d28c8ac32ada55d92fcf2 b6633ac3fc3177b8d293c2e6ab2f5e576ee70977')
+
+        self.assertEquals(b'', e)
+        expected_stdout = u'''
+ Latin McAscii | 501 (0->501) bytes
+ 张三李四      |  11 (0->11) bytes
+'''
+        self.assertEquals(self.prepare_expected_string(expected_stdout), o)
+
+    def test_06(self):
+        # From 45c19 to b6633
+        o, e = self.run_cli('f410635b54ad97bbeb0d28c8ac32ada55d92fcf2 b6633ac3fc3177b8d293c2e6ab2f5e576ee70977')
+
+        self.assertEquals(b'', e)
+        expected_stdout = u'''
+ Latin McAscii | 501 (0->501) bytes
+ 张三李四      |  11 (0->11) bytes
+'''
+        self.assertEquals(self.prepare_expected_string(expected_stdout), o)
