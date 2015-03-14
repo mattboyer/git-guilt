@@ -35,27 +35,27 @@ from __future__ import print_function
 
 __all__ = ("get_git_version")
 
-from subprocess import Popen, PIPE
+from src.guilt import GitRunner
 
 
 def call_git_describe(abbrev=4):
-    try:
-        p = Popen(['git', 'describe', '--long', '--abbrev=%d' % abbrev],
-                  stdout=PIPE, stderr=PIPE)
-        p.stderr.close()
-        line = p.stdout.readlines()[0]
-        #return line.strip().decode('utf_8')
-        tag = line.strip().decode('utf_8')
-        release, commits_ahead, hash = tag.split('-')
-        commits_ahead = int(commits_ahead)
-        if commits_ahead:
-            return "{t}.dev{c}".format(t=release, c=commits_ahead)
+    runner = GitRunner()
+    output = runner.run_git(['rev-parse', '--abbrev-ref', 'HEAD'])
+    branch = output[0].strip()
+
+    output = runner.run_git(['describe', '--long', '--abbrev=%d' % abbrev])
+    tag = output[0].strip()
+    release, commits_ahead, hash = tag.split('-')
+    commits_ahead = int(commits_ahead)
+    if commits_ahead:
+        if 'master' == branch:
+            return "{t}.post{c}".format(t=release, c=commits_ahead)
         else:
-            return release
+            return "{t}.dev{c}".format(t=release, c=commits_ahead)
+    else:
+        return release
 
 
-    except:
-        return None
 
 
 def read_release_version():
