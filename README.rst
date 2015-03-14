@@ -9,6 +9,15 @@ A Python port of Tim Pettersen's git-guilt
 
 ``git-guilt`` aims to provide information regarding the *transfer* of ownership between two revisions of a repository.
 
+Usage
+-----
+
+Installation
+------------
+
+Examples
+--------
+
 .. code-block:: bash
 
     518-mboyer@marylou:~/tmp/koala [master:I=R=S_]$ git guilt HEAD~5 HEAD
@@ -16,3 +25,10 @@ A Python port of Tim Pettersen's git-guilt
     Ethan             |  0
     Ziad Khoury Hanna |  0
     Ethan Lai         | -4 ----
+
+Notes
+-----
+
+Unit tests and integration tests are run for every commit made to git-guilt. Continuous Integration services provided by Travis CI.
+
+- Coverage metrics
