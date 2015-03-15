@@ -519,7 +519,7 @@ class PyGuilt(object):
     '''
 
     def __init__(self):
-        self.parser = PyGuilt.setup_argparser()
+        self.parser = setup_argparser()
         self.args = None
 
         # Job queue for the 'git blame' executions
@@ -551,24 +551,6 @@ class PyGuilt(object):
         self.runner = GitRunner()
         self.loc_formatter = Formatter(self.loc_deltas)
         self.byte_formatter = Formatter(self.byte_deltas)
-
-    @staticmethod
-    def setup_argparser():
-        '''
-        Returns an instance of argparse.ArgumentParser for git-guilt
-        '''
-
-        parser = argparse.ArgumentParser(prog='git guilt')
-        parser.add_argument(
-            '-w',
-            '--whitespace',
-            action='store_true',
-        )
-        parser.add_argument('-e', '--email', action='store_true')
-        parser.add_argument('since', nargs='?')
-        # Surely until should default to something sensible
-        parser.add_argument('until', nargs='?')
-        return parser
 
     def process_args(self):
         self.args = self.parser.parse_args()
@@ -726,6 +708,23 @@ class PyGuilt(object):
 
 def main():
     sys.exit(PyGuilt().run())
+
+def setup_argparser():
+    '''
+    Returns an instance of argparse.ArgumentParser for git-guilt
+    '''
+
+    parser = argparse.ArgumentParser(prog='git guilt')
+    parser.add_argument(
+        '-w',
+        '--whitespace',
+        action='store_true',
+    )
+    parser.add_argument('-e', '--email', action='store_true')
+    parser.add_argument('since', nargs='?')
+    # Surely until should default to something sensible
+    parser.add_argument('until', nargs='?')
+    return parser
 
 if '__main__' == __name__:
     main()
