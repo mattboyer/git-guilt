@@ -8,7 +8,7 @@ python:
 
 install:
         - "pip install -r requirements-${TRAVIS_PYTHON_VERSION}.txt"
-        - "sphinx-build -b man . ."
+        - "sphinx-build -b man docs/ ."
 
 script:
         - pep8 src
