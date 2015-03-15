@@ -1,5 +1,4 @@
-language: python
-
+language: python 
 sudo: false
 
 python:
@@ -9,6 +8,7 @@ python:
 
 install:
         - "pip install -r requirements-${TRAVIS_PYTHON_VERSION}.txt"
+        - "sphinx-build -b man . ."
 
 script:
         - pep8 src

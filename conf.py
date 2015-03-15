@@ -228,7 +228,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'git-guilt', 'git-guilt Documentation',
+    ('git-guilt.1', 'git-guilt', 'git-guilt Documentation',
      ['Matt Boyer'], 1)
 ]
 
