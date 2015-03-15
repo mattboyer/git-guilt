@@ -1,4 +1,4 @@
-# -*- coding: UTF-8 -*-
+# -*- coding: utf-8 -*-
 # Copyright (c) 2015, Matt Boyer
 # All rights reserved.
 #
@@ -319,7 +319,7 @@ class Formatter(object):
 
     @staticmethod
     def term_width(unicode_string):
-        wide = 'WFA'
+        wide = 'WF'
         return sum([2 if unicodedata.east_asian_width(c) in wide else 1
                     for c in unicode_string])
 
@@ -384,7 +384,8 @@ class Formatter(object):
         # TODO Do something like diffstat's number of files changed, number or
         # insertions and number of deletions
         for delta in self.deltas:
-            Formatter.terminal_output(self.format(delta), sys.stdout)
+            if delta.count:
+                Formatter.terminal_output(self.format(delta), sys.stdout)
 
     def _scale_bargraph(self, graph_width):
         if 0 == graph_width:
