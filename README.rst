@@ -12,6 +12,8 @@ A Python port of Tim Pettersen's git-guilt
 Usage
 -----
 
+See docs
+
 Installation
 ------------
 
