@@ -4,8 +4,9 @@ import version
 setup(
     name='git-guilt',
     version=version.get_git_version(),
-    url='https://github.com/mattboyer/py_git-guilt',
-    description='A Python port of Tim Pettersen\'s git-guilt',
+    url='https://github.com/mattboyer/git-guilt',
+    description='git-guilt provides information on the transfer of '\
+        'ownership in a Git repository',
     author='Matt Boyer',
     author_email='mboyer@sdf.org',
     license='BSD',
