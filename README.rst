@@ -17,6 +17,18 @@ See docs
 Installation
 ------------
 
+To install, simply type:
+
+.. code-block:: bash
+
+    pip install git-guilt
+
+You can also clone this repository and run the following from your working copy:
+
+.. code-block:: bash
+
+    python setup.py install
+
 Examples
 --------
 
@@ -34,3 +46,5 @@ Notes
 Unit tests and integration tests are run for every commit made to git-guilt. Continuous Integration services provided by Travis CI.
 
 - Coverage metrics
+
+- Unicode friendly
