@@ -1,5 +1,5 @@
 git_guilt.egg-info/
-node_modules/
+.doctrees/
 .coverage
 *.pyc
 RELEASE-VERSION
