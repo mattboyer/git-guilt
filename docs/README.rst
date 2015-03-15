@@ -46,7 +46,7 @@ Please `read the docs <http://git-guilt.readthedocs.org>`_.
 Notes
 -----
 
-Unit tests and integration tests are run for every commit. ``git-guilt`` is `tested <https://travis-ci.org/mattboyer/py_git-guilt>`_ on Python 2.7, 3.3 and 3.4.
+Unit tests and integration tests are run for every commit. ``git-guilt`` is `tested <https://travis-ci.org/mattboyer/git-guilt>`_ on Python 2.7, 3.3 and 3.4.
 
 ``git-guilt`` tries to be Unicode-friendly. There are tests for non-Latin character support in author names, repository paths and terminal output.
 
