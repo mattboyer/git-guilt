@@ -4,10 +4,12 @@
 .. image:: https://coveralls.io/repos/mattboyer/py_git-guilt/badge.svg?branch=master
    :target: https://coveralls.io/r/mattboyer/py_git-guilt?branch=master 
 
-A Python port of Tim Pettersen's git-guilt
-==========================================
+git-guilt
+=========
 
-``git-guilt`` aims to provide information regarding the *transfer* of ownership between two revisions of a repository.
+``git-guilt`` is a custom tool written for the `Git <http://git-scm.com/>`_ Source Code Management system. It aims to provide information regarding the *transfer* of ownership between two revisions of a repository. Think of it as a first-order derivative of `git-blame <http://git-scm.com/docs/git-blame>`_!
+
+``git-guilt`` is a Python port of Tim Pettersen's JavaScript `tool <https://bitbucket.org/tpettersen/git-guilt>`_ of the same name.
 
 Usage
 -----
@@ -28,6 +30,13 @@ You can also clone this repository and run the following from your working copy:
 .. code-block:: bash
 
     python setup.py install
+
+Why use git-guilt?
+------------------
+
+- ``git-guilt`` can be used to identify code reviewers. Authors whose overall ownership of the repository *decreases* for a given commit will often have valuable feedback to provide during a code review. Yesterday's design decisions may still be relevant today. And even if they're not, this is a great opportunity to learn from past mistakes!
+
+- Likewise, ``git-guilt`` can be used to run periodic audits on the ownership of code in a repo. Middle managers love this stuff!
 
 Examples
 --------
