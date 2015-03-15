@@ -19,6 +19,7 @@ setup(
     ],
     keywords='git blame guilt',
     packages=find_packages(exclude=['test']),
+    data_files = [('man/man1', ['git-guilt.1'])],
     install_requires=[],
     entry_points={
         'console_scripts': [
