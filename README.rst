@@ -11,10 +11,12 @@ git-guilt
 
 ``git-guilt`` is a Python port of Tim Pettersen's JavaScript `tool <https://bitbucket.org/tpettersen/git-guilt>`_ of the same name.
 
-Usage
------
+Screenshot
+----------
 
-See docs
+.. image:: docs/screenshot.png
+
+
 
 Installation
 ------------
