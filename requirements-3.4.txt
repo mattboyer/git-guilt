@@ -5,3 +5,5 @@ nose
 pep8
 pylint
 setuptools
+Sphinx
+sphinx-argparse
