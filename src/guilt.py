@@ -709,6 +709,7 @@ class PyGuilt(object):
 def main():
     sys.exit(PyGuilt().run())
 
+
 def setup_argparser():
     '''
     Returns an instance of argparse.ArgumentParser for git-guilt
