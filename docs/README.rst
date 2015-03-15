@@ -1,8 +1,8 @@
-.. image:: https://travis-ci.org/mattboyer/py_git-guilt.svg?branch=master
-   :target: https://travis-ci.org/mattboyer/py_git-guilt
+.. image:: https://travis-ci.org/mattboyer/git-guilt.svg?branch=master
+   :target: https://travis-ci.org/mattboyer/git-guilt
 
-.. image:: https://coveralls.io/repos/mattboyer/py_git-guilt/badge.svg?branch=master
-   :target: https://coveralls.io/r/mattboyer/py_git-guilt?branch=master 
+.. image:: https://coveralls.io/repos/mattboyer/git-guilt/badge.svg?branch=master
+   :target: https://coveralls.io/r/mattboyer/git-guilt?branch=master 
 
 git-guilt
 =========
