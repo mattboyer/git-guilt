@@ -16,8 +16,6 @@ Screenshot
 
 .. image:: docs/screenshot.png
 
-
-
 Installation
 ------------
 
@@ -27,7 +25,7 @@ To install, simply type:
 
     pip install git-guilt
 
-You can also clone this repository and run the following from your working copy:
+You can also `clone <http://travis-ci.org/>`_ this repository and run the following from your working copy:
 
 .. code-block:: bash
 
@@ -40,22 +38,19 @@ Why use git-guilt?
 
 - Likewise, ``git-guilt`` can be used to run periodic audits on the ownership of code in a repo. Middle managers love this stuff!
 
-Examples
---------
+Documentation and usage
+-----------------------
 
-.. code-block:: bash
-
-    518-mboyer@marylou:~/tmp/koala [master:I=R=S_]$ git guilt HEAD~5 HEAD
-    oklai             | 17 +++++++++++++++++
-    Ethan             |  0
-    Ziad Khoury Hanna |  0
-    Ethan Lai         | -4 ----
+Please `read the docs <http://git-guilt.readthedocs.org>`_.
 
 Notes
 -----
 
-Unit tests and integration tests are run for every commit made to git-guilt. Continuous Integration services provided by Travis CI.
+Unit tests and integration tests are run for every commit. ``git-guilt`` is `tested <https://travis-ci.org/mattboyer/py_git-guilt>`_ on Python 2.7, 3.3 and 3.4.
 
-- Coverage metrics
+``git-guilt`` tries to be Unicode-friendly. There are tests for non-Latin character support in author names, repository paths and terminal output.
 
-- Unicode friendly
+To-Dos
+------
+
+``git-guilt`` has only been tested on Linux so far. I expect some work to be needed to port terminal handling code to MacOS X. Support for Microsoft Windows would likely require more work.
