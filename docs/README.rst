@@ -25,7 +25,7 @@ To install, simply type:
 
     pip install git-guilt
 
-You can also `clone <http://travis-ci.org/>`_ this repository and run the following from your working copy:
+You can also `clone <https://help.github.com/articles/cloning-a-repository/>`_ this repository and run the following from your working copy:
 
 .. code-block:: bash
 
