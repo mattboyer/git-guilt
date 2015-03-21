@@ -19,12 +19,19 @@ setup(
         'Topic :: Software Development :: Version Control',
     ],
     keywords='git blame guilt',
-    packages=find_packages(exclude=['test']),
-    data_files = [('man/man1', ['docs/git-guilt.1'])],
+    packages=['git_guilt'],
+    include_package_data=True,
+    data_files = [('man/man1', ['docs/man/git-guilt.1'])],
     install_requires=[],
     entry_points={
         'console_scripts': [
-            'git-guilt = src.guilt:main'
+            'git-guilt = git_guilt.guilt:main'
         ]
-    }
+    },
+    command_options={
+        'build_sphinx': {
+            'builder': ('foo', 'man'),
+            'build_dir': ('foo', 'docs'),
+        },
+    },
 )

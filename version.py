@@ -35,7 +35,8 @@ from __future__ import print_function
 
 __all__ = ("get_git_version")
 
-from src.guilt import GitRunner
+from git_guilt.guilt import GitRunner, GitError
+import os
 
 
 def call_git_describe(abbrev=4):
@@ -60,7 +61,7 @@ def call_git_describe(abbrev=4):
 
 def read_release_version():
     try:
-        f = open("RELEASE-VERSION", "r")
+        f = open(get_release_version_path(), "r")
 
         try:
             version = f.readlines()[0]
@@ -72,41 +73,44 @@ def read_release_version():
     except:
         return None
 
+def get_release_version_path():
+    top_level_dir = os.path.dirname(__file__)
+    assert os.path.isdir(top_level_dir)
+    rv_path = os.path.join(top_level_dir, 'RELEASE-VERSION')
+    return rv_path
 
 def write_release_version(version):
-    f = open("RELEASE-VERSION", "w")
+    f = open(get_release_version_path(), "w")
     f.write("%s\n" % version)
     f.close()
 
 
 def get_git_version(abbrev=4):
     # Read in the version that's currently in RELEASE-VERSION.
-
     release_version = read_release_version()
 
     # First try to get the current version using “git describe”.
-
-    version = call_git_describe(abbrev)
+    try:
+        version = call_git_describe(abbrev)
+    except:
+        # We're probably operating from a source dist
+        version = None
 
     # If that doesn't work, fall back on the value that's in
     # RELEASE-VERSION.
-
     if version is None:
         version = release_version
 
     # If we still don't have anything, that's an error.
-
     if version is None:
         raise ValueError("Cannot find the version number!")
 
     # If the current version is different from what's in the
     # RELEASE-VERSION file, update the file to be current.
-
     if version != release_version:
         write_release_version(version)
 
     # Finally, return the current version.
-
     return version
 
 

@@ -58,12 +58,7 @@ class GitRunner(object):
 
     def __init__(self):
         self._git_toplevel = None
-        try:
-            self._get_git_root()
-        except GitError as ex:
-            # Do something appropriate
-            Formatter.terminal_output(str(ex), sys.stderr)
-            raise SystemExit(4)
+        self._get_git_root()
 
     def _get_git_root(self):
         # We should probably go beyond just finding the root dir for the Git
@@ -549,7 +544,13 @@ class PyGuilt(object):
         self.trees = dict()
 
         # Helper objects
-        self.runner = GitRunner()
+        try:
+            self.runner = GitRunner()
+        except GitError as ex:
+            # Do something appropriate
+            Formatter.terminal_output(str(ex), sys.stderr)
+            raise SystemExit(4)
+
         self.loc_formatter = Formatter(self.loc_deltas)
         self.byte_formatter = Formatter(self.byte_deltas)
 

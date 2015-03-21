@@ -1,0 +1,3 @@
+include RELEASE-VERSION
+include version.py
+include docs/man/git-guilt.1
