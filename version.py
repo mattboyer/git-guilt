@@ -36,6 +36,7 @@ from __future__ import print_function
 __all__ = ("get_git_version")
 
 from git_guilt.guilt import GitRunner, GitError
+import os
 
 
 def call_git_describe(abbrev=4):
@@ -60,7 +61,7 @@ def call_git_describe(abbrev=4):
 
 def read_release_version():
     try:
-        f = open("RELEASE-VERSION", "r")
+        f = open(get_release_version_path(), "r")
 
         try:
             version = f.readlines()[0]
@@ -72,9 +73,14 @@ def read_release_version():
     except:
         return None
 
+def get_release_version_path():
+    top_level_dir = os.path.dirname(__file__)
+    assert os.path.isdir(top_level_dir)
+    rv_path = os.path.join(top_level_dir, 'RELEASE-VERSION')
+    return rv_path
 
 def write_release_version(version):
-    f = open("RELEASE-VERSION", "w")
+    f = open(get_release_version_path(), "w")
     f.write("%s\n" % version)
     f.close()
 
