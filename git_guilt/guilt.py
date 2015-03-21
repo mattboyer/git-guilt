@@ -546,10 +546,14 @@ class PyGuilt(object):
         # Helper objects
         try:
             self.runner = GitRunner()
-        except GitError as ex:
+        except GitError:
             # Do something appropriate
-            Formatter.terminal_output(str(ex), sys.stderr)
-            raise SystemExit(4)
+            Formatter.terminal_output(
+                "Could not initialise GitRunner - please run from a "
+                "Git repository.",
+                sys.stderr
+            )
+            raise SystemExit(1)
 
         self.loc_formatter = Formatter(self.loc_deltas)
         self.byte_formatter = Formatter(self.byte_deltas)

@@ -332,7 +332,7 @@ class GitRunnerTestCase(TestCase):
         mock_stderr = stderr_patch.start()
 
         self.assertRaises(SystemExit, guilt_module.PyGuilt)
-        self.assertEquals("Couldn't run 'git rev-parse --show-toplevel':\n\n", mock_stderr.getvalue())
+        self.assertEquals("Could not initialise GitRunner - please run from a Git repository.\n", mock_stderr.getvalue())
 
         stderr_patch.stop()
 
