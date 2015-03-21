@@ -20,4 +20,4 @@ script:
         - git guilt HEAD~3 HEAD
 
 after_success:
-        coveralls
+        coveralls -v
