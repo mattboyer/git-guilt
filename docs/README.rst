@@ -2,7 +2,7 @@
    :target: https://travis-ci.org/mattboyer/git-guilt
 
 .. image:: https://coveralls.io/repos/mattboyer/git-guilt/badge.svg?branch=master
-   :target: https://coveralls.io/r/mattboyer/git-guilt?branch=master 
+   :target: https://coveralls.io/r/mattboyer/git-guilt
 
 git-guilt
 =========
