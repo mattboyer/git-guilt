@@ -27,5 +27,11 @@ setup(
         'console_scripts': [
             'git-guilt = git_guilt.guilt:main'
         ]
-    }
+    },
+    command_options={
+        'build_sphinx': {
+            'builder': ('foo', 'man'),
+            'build_dir': ('foo', 'docs'),
+        },
+    },
 )
