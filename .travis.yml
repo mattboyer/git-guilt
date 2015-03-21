@@ -11,13 +11,13 @@ install:
         - "sphinx-build -b man docs/ ."
 
 script:
-        - pep8 src
-        - pylint src/*.py
+        - pep8 git_guilt
+        - pylint git_guilt
         - nosetests test/test_guilt.py --with-coverage --cover-package=guilt
         - pip install .
         - nosetests test/test_integration.py
         - cd git_test_repo
-        - python ../src/guilt.py HEAD~3 HEAD
+        - git guilt HEAD~3 HEAD
 
 after_success:
         coveralls
