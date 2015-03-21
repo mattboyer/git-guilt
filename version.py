@@ -35,7 +35,7 @@ from __future__ import print_function
 
 __all__ = ("get_git_version")
 
-from src.guilt import GitRunner, GitError
+from git_guilt.guilt import GitRunner, GitError
 
 
 def call_git_describe(abbrev=4):
