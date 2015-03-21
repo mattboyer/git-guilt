@@ -8,14 +8,14 @@ python:
 
 install:
         - "pip install -r requirements-${TRAVIS_PYTHON_VERSION}.txt"
-        - "sphinx-build -b man docs/ ."
+        - "python setup.py build_sphinx install"
 
 script:
         - pep8 git_guilt
         - pylint git_guilt
-        - nosetests test/test_guilt.py --with-coverage --cover-package=guilt
-        - pip install .
+        - nosetests test/test_guilt.py --with-coverage --cover-package=git_guilt
         - nosetests test/test_integration.py
+        - git guilt HEAD~1 HEAD
         - cd git_test_repo
         - git guilt HEAD~3 HEAD
 
