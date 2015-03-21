@@ -35,7 +35,7 @@ from __future__ import print_function
 
 __all__ = ("get_git_version")
 
-from src.guilt import GitRunner
+from src.guilt import GitRunner, GitError
 
 
 def call_git_describe(abbrev=4):
@@ -81,32 +81,30 @@ def write_release_version(version):
 
 def get_git_version(abbrev=4):
     # Read in the version that's currently in RELEASE-VERSION.
-
     release_version = read_release_version()
 
     # First try to get the current version using “git describe”.
-
-    version = call_git_describe(abbrev)
+    try:
+        version = call_git_describe(abbrev)
+    except:
+        # We're probably operating from a source dist
+        version = None
 
     # If that doesn't work, fall back on the value that's in
     # RELEASE-VERSION.
-
     if version is None:
         version = release_version
 
     # If we still don't have anything, that's an error.
-
     if version is None:
         raise ValueError("Cannot find the version number!")
 
     # If the current version is different from what's in the
     # RELEASE-VERSION file, update the file to be current.
-
     if version != release_version:
         write_release_version(version)
 
     # Finally, return the current version.
-
     return version
 
 
