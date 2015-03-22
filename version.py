@@ -60,18 +60,9 @@ def call_git_describe(abbrev=4):
 
 
 def read_release_version():
-    try:
-        f = open(get_release_version_path(), "r")
-
-        try:
-            version = f.readlines()[0]
-            return version.strip()
-
-        finally:
-            f.close()
-
-    except:
-        return None
+    with open(get_release_version_path(), "r") as f:
+        version = f.readlines()[0]
+        return version.strip()
 
 def get_release_version_path():
     top_level_dir = os.path.dirname(__file__)
