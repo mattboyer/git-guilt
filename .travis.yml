@@ -20,7 +20,5 @@ script:
         - git guilt HEAD~3 HEAD
 
 after_success:
-        - set
-        - cd ..
-        - stat .coverage
-        - coveralls -v
+        - cd ${TRAVIS_BUILD_DIR}
+        - coveralls
