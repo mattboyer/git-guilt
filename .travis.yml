@@ -14,10 +14,13 @@ script:
         - pep8 git_guilt
         - pylint git_guilt
         - nosetests test/test_guilt.py --with-coverage --cover-package=git_guilt
+        - stat .coverage
         - nosetests test/test_integration.py
+        - stat .coverage
         - git guilt HEAD~1 HEAD
         - cd git_test_repo
         - git guilt HEAD~3 HEAD
 
 after_success:
-        coveralls -v
+        - stat .coverage
+        - coveralls -v
