@@ -32,6 +32,8 @@ setup(
         'build_sphinx': {
             'builder': ('foo', 'man'),
             'build_dir': ('foo', 'docs'),
+            'all_files': ('foo', True),
+            'fresh_env': ('foo', True),
         },
     },
 )
