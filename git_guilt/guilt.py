@@ -721,16 +721,39 @@ def setup_argparser():
     Returns an instance of argparse.ArgumentParser for git-guilt
     '''
 
-    parser = argparse.ArgumentParser(prog='git guilt')
-    parser.add_argument(
-        '-w',
-        '--whitespace',
-        action='store_true',
+    parser = argparse.ArgumentParser(
+        prog='git guilt',
+        description='''
+git-guilt is a custom tool written for git(1). It provides
+information regarding the transfer of ownership between two
+revisions of a repository.
+        '''.strip(),
     )
-    parser.add_argument('-e', '--email', action='store_true')
-    parser.add_argument('since', nargs='?')
+    parser.add_argument(
+        '-w', '--whitespace',
+        action='store_true',
+        help='Causes git-guilt to ignore lines that only include whitespace '
+        'characters',
+    )
+    parser.add_argument(
+        '-e', '--email',
+        action='store_true',
+        help='Causes git-guilt to report transfers of ownership using '
+        'authors\' email addresses instead of their names',
+    )
+    parser.add_argument(
+        'since',
+        nargs='?',
+        help='The revision since which the transfer of blame should be '
+        'reported',
+    )
     # Surely until should default to something sensible
-    parser.add_argument('until', nargs='?')
+    parser.add_argument(
+        'until',
+        nargs='?',
+        help='The revision until which the transfer of blame should be '
+        'reported',
+    )
     return parser
 
 if '__main__' == __name__:
