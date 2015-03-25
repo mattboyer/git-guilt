@@ -292,7 +292,7 @@ class GitRunnerTestCase(TestCase):
         #blame.bucket = {'Foo Bar': 0, 'Tim Pettersen': 0}
         runner = guilt_module.GitRunner()
         bucket = {'Foo Bar': 0, 'Tim Pettersen': 0}
-        blame = guilt_module.TextBlameTicket(runner, bucket, 'src/foo.c', 'HEAD')
+        blame = guilt_module.TextBlameTicket(runner, bucket, 'src/foo.c', 'HEAD', Mock())
 
         blame.process()
         self.assertEquals(
@@ -307,7 +307,7 @@ class GitRunnerTestCase(TestCase):
         runner = guilt_module.GitRunner()
 
         bucket = {'Foo Bar': 0, 'Tim Pettersen': 0}
-        blame = guilt_module.TextBlameTicket(runner, bucket, 'src/foo.c', 'HEAD')
+        blame = guilt_module.TextBlameTicket(runner, bucket, 'src/foo.c', 'HEAD', Mock())
 
         mock_run_git.side_effect = guilt_module.GitError("'git blame arbitrary path failed with:\nfatal: no such path 'src/foo.c' in HEAD")
 
@@ -396,10 +396,10 @@ class GuiltTestCase(TestCase):
         self.assertEquals(4, len(self.guilt.blame_jobs))
         self.assertEquals(
                 [
-                    guilt_module.TextBlameTicket(mock_runner, self.guilt.loc_ownership_since, 'foo.c', 'HEAD~4'),
-                    guilt_module.TextBlameTicket(mock_runner, self.guilt.loc_ownership_until, 'foo.c', 'HEAD~1'),
-                    guilt_module.TextBlameTicket(mock_runner, self.guilt.loc_ownership_since, 'foo.h', 'HEAD~4'),
-                    guilt_module.TextBlameTicket(mock_runner, self.guilt.loc_ownership_until, 'foo.h', 'HEAD~1'),
+                    guilt_module.TextBlameTicket(mock_runner, self.guilt.loc_ownership_since, 'foo.c', 'HEAD~4', Mock()),
+                    guilt_module.TextBlameTicket(mock_runner, self.guilt.loc_ownership_until, 'foo.c', 'HEAD~1', Mock()),
+                    guilt_module.TextBlameTicket(mock_runner, self.guilt.loc_ownership_since, 'foo.h', 'HEAD~4', Mock()),
+                    guilt_module.TextBlameTicket(mock_runner, self.guilt.loc_ownership_until, 'foo.h', 'HEAD~1', Mock()),
                 ],
                 self.guilt.blame_jobs
             )
