@@ -252,7 +252,13 @@ class TextBlameTicket(BlameTicket):
 
 class BinaryBlameTicket(BlameTicket):
     def __init__(self, runner, bucket, path, rev, args):
-        super(BinaryBlameTicket, self).__init__(runner, bucket, path, rev, args)
+        super(BinaryBlameTicket, self).__init__(
+            runner,
+            bucket,
+            path,
+            rev,
+            args
+        )
 
         binary_git_config_dict = dict()
         binary_git_config_dict['diff.binary_blame.textconv'] = 'xxd -p -c1'
