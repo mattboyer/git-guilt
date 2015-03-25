@@ -68,7 +68,7 @@ def read_release_version():
         return None
 
 def get_release_version_path():
-    top_level_dir = os.path.dirname(__file__)
+    top_level_dir = os.path.dirname(os.path.abspath(__file__))
     assert os.path.isdir(top_level_dir)
     rv_path = os.path.join(top_level_dir, 'RELEASE-VERSION')
     return rv_path

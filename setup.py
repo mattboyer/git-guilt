@@ -22,7 +22,7 @@ setup(
     packages=['git_guilt'],
     include_package_data=True,
     data_files = [('man/man1', ['docs/man/git-guilt.1'])],
-    install_requires=[],
+    install_requires=['argparse'],
     entry_points={
         'console_scripts': [
             'git-guilt = git_guilt.guilt:main'
