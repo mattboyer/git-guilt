@@ -169,12 +169,13 @@ class BlameTicket(object):
     '''A queued blame. This is a TODO item, really'''
     _author_regex = r'^[^(]*\((.*?) \d{4}-\d{2}-\d{2}'
 
-    def __init__(self, runner, bucket, path, rev):
+    def __init__(self, runner, bucket, path, rev, args):
         self.name_regex = re.compile(self._author_regex)
 
         self.runner = runner
         self.bucket = bucket
         self.repo_path = path
+        self.args = args
         self.rev = rev
 
         self.config_pairs = dict()
@@ -197,6 +198,8 @@ class BlameTicket(object):
 
     def blame_args(self):
         blame_args = ['blame', '--encoding=utf-8', '--', self.repo_path]
+        if self.args.email:
+            blame_args.insert(1, '--show-email')
         if self.rev:
             blame_args.append(self.rev)
         return blame_args
@@ -210,8 +213,8 @@ class BlameTicket(object):
 
 
 class TextBlameTicket(BlameTicket):
-    def __init__(self, runner, bucket, path, rev):
-        super(TextBlameTicket, self).__init__(runner, bucket, path, rev)
+    def __init__(self, runner, bucket, path, rev, args):
+        super(TextBlameTicket, self).__init__(runner, bucket, path, rev, args)
 
     def __repr__(self):
         return "<TextBlame {rev}:\"{path}\">".format(
@@ -248,8 +251,8 @@ class TextBlameTicket(BlameTicket):
 
 
 class BinaryBlameTicket(BlameTicket):
-    def __init__(self, runner, bucket, path, rev):
-        super(BinaryBlameTicket, self).__init__(runner, bucket, path, rev)
+    def __init__(self, runner, bucket, path, rev, args):
+        super(BinaryBlameTicket, self).__init__(runner, bucket, path, rev, args)
 
         binary_git_config_dict = dict()
         binary_git_config_dict['diff.binary_blame.textconv'] = 'xxd -p -c1'
@@ -595,7 +598,8 @@ class PyGuilt(object):
                     self.runner,
                     self.loc_ownership_since,
                     repo_path,
-                    self.args.since
+                    self.args.since,
+                    self.args
                 )
             )
 
@@ -604,7 +608,8 @@ class PyGuilt(object):
                     self.runner,
                     self.loc_ownership_until,
                     repo_path,
-                    self.args.until
+                    self.args.until,
+                    self.args
                 )
             )
 
@@ -614,7 +619,8 @@ class PyGuilt(object):
                     self.runner,
                     self.byte_ownership_since,
                     repo_path,
-                    self.args.since
+                    self.args.since,
+                    self.args
                 )
             )
 
@@ -623,7 +629,8 @@ class PyGuilt(object):
                     self.runner,
                     self.byte_ownership_until,
                     repo_path,
-                    self.args.until
+                    self.args.until,
+                    self.args
                 )
             )
 
