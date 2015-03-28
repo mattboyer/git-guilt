@@ -757,8 +757,8 @@ revisions of a repository.
     parser.add_argument(
         'since',
         nargs='?',
-        help='The revision since which the transfer of blame should be '
-        'reported',
+        help='The revision starting from which the transfer of blame should '
+        'be reported',
     )
     # Surely until should default to something sensible
     parser.add_argument(
