@@ -1,7 +1,26 @@
 from setuptools import setup
+from distutils.command.build import build as DistUtilsBuild
+from setuptools.command.install import install as SetupToolsBuild
 import version
 
+class SphinxBuild(DistUtilsBuild):
+
+    def run(self):
+        self.run_command('build_sphinx')
+        DistUtilsBuild.run(self)
+
+class SphinxInstall(SetupToolsBuild):
+
+    def run(self):
+        self.run_command('build_sphinx')
+        SetupToolsBuild.run(self)
+
+
 setup(
+    cmdclass={
+        'build': SphinxBuild,
+        'install': SphinxInstall,
+    },
     name='git-guilt',
     version=version.get_git_version(),
     url='https://github.com/mattboyer/git-guilt',
@@ -36,6 +55,7 @@ setup(
         'build_sphinx': {
             'builder': ('foo', 'man'),
             'build_dir': ('foo', 'docs'),
+            'config_dir': ('foo', 'docs'),
             'all_files': ('foo', True),
             'fresh_env': ('foo', True),
         },

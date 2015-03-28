@@ -49,7 +49,7 @@ Why use git-guilt?
 Documentation and usage
 -----------------------
 
-Please `read the docs <http://git-guilt.readthedocs.org>`_.
+Please `read the docs <http://git-guilt.readthedocs.org/en/latest/git-guilt.1.html>`_.
 
 Notes
 -----
