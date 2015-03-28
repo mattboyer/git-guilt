@@ -8,24 +8,21 @@ python:
         - "2.6"
 
 before_install:
-        - "[[ ${TRAVIS_PYTHON_VERSION} != 2.6 ]] || pip uninstall -y argparse"
+        - "pip install -r requirements-${TRAVIS_PYTHON_VERSION}.txt"
         - pip freeze
 
 install:
-        - python setup.py install
-
-before_script:
-        - "pip install -r requirements-${TRAVIS_PYTHON_VERSION}.txt"
+        - python setup.py build_sphinx sdist
+        - "[[ ${TRAVIS_PYTHON_VERSION} != 2.6 ]] || pip uninstall -y argparse"
+        - pip install dist/git-guilt-*.tar.gz
 
 script:
         - pep8 git_guilt
         - "[[ ${TRAVIS_PYTHON_VERSION} == 2.6 ]] || pylint git_guilt"
         - nosetests test/test_guilt.py --with-coverage --cover-package=git_guilt
         - nosetests test/test_integration.py
-        - git guilt HEAD~1 HEAD
-        - cd git_test_repo
-        - git guilt HEAD~3 HEAD
 
 after_success:
         - cd ${TRAVIS_BUILD_DIR}
         - coveralls
+        - git guilt HEAD~1 HEAD
