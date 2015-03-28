@@ -8,11 +8,11 @@ python:
         - "2.6"
 
 before_install:
-        - "[[ ${TRAVIS_PYTHON_VERSION} == 2.6 ]] || pip uninstall -y argparse"
+        - "[[ ${TRAVIS_PYTHON_VERSION} == 2.6 ]] && pip uninstall -y argparse"
         - pip freeze
 
 install:
-        - python setup.py build_sphinx install
+        - python setup.py install
 
 before_script:
         - "pip install -r requirements-${TRAVIS_PYTHON_VERSION}.txt"
