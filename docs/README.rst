@@ -1,8 +1,16 @@
 .. image:: https://travis-ci.org/mattboyer/git-guilt.svg?branch=master
-   :target: https://travis-ci.org/mattboyer/git-guilt
+    :target: https://travis-ci.org/mattboyer/git-guilt
 
 .. image:: https://coveralls.io/repos/mattboyer/git-guilt/badge.svg?branch=master
-   :target: https://coveralls.io/r/mattboyer/git-guilt
+    :target: https://coveralls.io/r/mattboyer/git-guilt
+
+.. image:: https://pypip.in/version/git-guilt/badge.svg
+    :target: https://pypi.python.org/pypi/git-guilt/
+    :alt: Latest Version
+
+.. image:: https://pypip.in/py_versions/git-guilt/badge.svg
+    :target: https://pypi.python.org/pypi/git-guilt/
+    :alt: Supported Python versions
 
 git-guilt
 =========
@@ -46,7 +54,7 @@ Please `read the docs <http://git-guilt.readthedocs.org>`_.
 Notes
 -----
 
-Unit tests and integration tests are run for every commit. ``git-guilt`` is `tested <https://travis-ci.org/mattboyer/git-guilt>`_ on Python 2.7, 3.3 and 3.4.
+Unit tests and integration tests are run for every commit. ``git-guilt`` is `tested <https://travis-ci.org/mattboyer/git-guilt>`_ on Python 2.6, 2.7, 3.3 and 3.4.
 
 ``git-guilt`` tries to be Unicode-friendly. There are tests for non-Latin character support in author names, repository paths and terminal output.
 
