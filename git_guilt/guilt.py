@@ -756,7 +756,6 @@ revisions of a repository.
     )
     parser.add_argument(
         'since',
-        metavar='since',
         nargs=1,
         help='The revision since which the transfer of blame should be '
         'reported',
@@ -764,7 +763,6 @@ revisions of a repository.
     # Surely until should default to something sensible
     parser.add_argument(
         'until',
-        metavar='until',
         nargs='?',
         default='HEAD',
         help='The revision until which the transfer of blame should be '
