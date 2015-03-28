@@ -6,7 +6,7 @@ class SphinxBuild(DistUtilsBuild):
 
     def run(self):
         self.run_command('build_sphinx')
-        super(SphinxBuild, self).run()
+        DistUtilsBuild.run(self)
 
 
 setup(
