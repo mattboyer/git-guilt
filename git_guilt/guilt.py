@@ -35,7 +35,6 @@ from __future__ import print_function
 
 import re
 import os
-import argparse
 import subprocess
 import tempfile
 import collections
@@ -733,6 +732,7 @@ def setup_argparser():
     '''
     Returns an instance of argparse.ArgumentParser for git-guilt
     '''
+    import argparse
 
     parser = argparse.ArgumentParser(
         prog='git guilt',

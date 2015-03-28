@@ -3,5 +3,6 @@ coveralls
 mock
 nose
 pep8
-pylint<=0.28.0
 setuptools
+Sphinx
+sphinx-argparse
