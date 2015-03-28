@@ -763,8 +763,7 @@ revisions of a repository.
     # Surely until should default to something sensible
     parser.add_argument(
         'until',
-        nargs='?',
-        default='HEAD',
+        nargs=1,
         help='The revision until which the transfer of blame should be '
         'reported',
     )
