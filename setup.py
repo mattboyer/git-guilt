@@ -1,7 +1,16 @@
 from setuptools import setup
+from setuptools.command.install import install as SetupToolsInstall
 import version
 
+class SphinxBuild(SetupToolsInstall):
+
+    def run(self):
+        self.run_command('build_sphinx')
+        super(SphinxBuild, self).run()
+
+
 setup(
+    cmdclass={'install': SphinxBuild},
     name='git-guilt',
     version=version.get_git_version(),
     url='https://github.com/mattboyer/git-guilt',
