@@ -7,9 +7,14 @@ python:
         - "2.7"
         - "2.6"
 
-install:
+before_install:
+        - pip uninstall argparse
         - pip freeze
+
+install:
         - "pip install -r requirements-${TRAVIS_PYTHON_VERSION}.txt"
+
+before_script:
         - python setup.py build_sphinx install
 
 script:
