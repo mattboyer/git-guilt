@@ -8,12 +8,13 @@ python:
         - "2.6"
 
 install:
+        - "pip freeze"
         - "pip install -r requirements-${TRAVIS_PYTHON_VERSION}.txt"
         - "python setup.py build_sphinx install"
 
 script:
         - pep8 git_guilt
-        - pylint git_guilt
+        - [[ ${TRAVIS_PYTHON_VERSION} == "2.6" ]] || pylint git_guilt
         - nosetests test/test_guilt.py --with-coverage --cover-package=git_guilt
         - nosetests test/test_integration.py
         - git guilt HEAD~1 HEAD
