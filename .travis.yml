@@ -12,9 +12,9 @@ before_install:
         - pip freeze
 
 install:
-        - python setup.py build_sphinx sdist
+        - python setup.py bdist_wheel
         - "[[ ${TRAVIS_PYTHON_VERSION} != 2.6 ]] || pip uninstall -y argparse"
-        - pip install dist/git-guilt-*.tar.gz
+        - pip install dist/git-guilt-*.whl
 
 script:
         - pep8 git_guilt
