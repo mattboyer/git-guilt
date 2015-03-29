@@ -241,7 +241,6 @@ class TextBlameTicket(BlameTicket):
             if 'no output' in str(ve).lower():
                 return
 
-        # TODO For now default to extracting names
         for line in lines:
             matches = self.name_regex.match(line)
             if matches:
@@ -300,7 +299,6 @@ class BinaryBlameTicket(BlameTicket):
                 else:
                     raise ge
 
-        # TODO For now default to extracting names
         for line in lines:
             matches = self.name_regex.match(line)
             if matches:
@@ -743,26 +741,23 @@ revisions of a repository.
         '''.strip(),
     )
     parser.add_argument(
-        '-w', '--whitespace',
-        action='store_true',
-        help='Causes git-guilt to ignore lines that only include whitespace '
-        'characters',
-    )
-    parser.add_argument(
         '-e', '--email',
         action='store_true',
         help='Causes git-guilt to report transfers of ownership using '
         'authors\' email addresses instead of their names',
     )
+
+    # TODO Surely there can be sensible defaults for the since and until revs
     parser.add_argument(
         'since',
+        metavar='since',
         nargs='?',
         help='The revision starting from which the transfer of blame should '
         'be reported',
     )
-    # Surely until should default to something sensible
     parser.add_argument(
         'until',
+        metavar='until',
         nargs='?',
         help='The revision until which the transfer of blame should be '
         'reported',
