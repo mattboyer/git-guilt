@@ -173,7 +173,7 @@ class GitRunnerTestCase(TestCase):
         self._popen_patch = patch('git_guilt.guilt.subprocess.Popen')
         self.mocked_popen = self._popen_patch.start()
         self.mocked_popen.return_value = Mock(
-            communicate=Mock(return_value=(b'bar', None)),
+            communicate=Mock(return_value=(b'git version 2.3.4', None)),
             returncode=0,
         )
 
@@ -182,6 +182,16 @@ class GitRunnerTestCase(TestCase):
 
     def tearDown(self):
         pass
+
+    def test_version(self):
+        self.runner.version = (1, 7, 1)
+        self.assertFalse(self.runner._git_supports_binary_diff())
+
+        self.runner.version = (1, 7, 2)
+        self.assertTrue(self.runner._git_supports_binary_diff())
+
+        self.runner.version = (2, 3, 4)
+        self.assertTrue(self.runner._git_supports_binary_diff())
 
     @patch('git_guilt.guilt.subprocess.Popen')
     def test_run_git_cwd(self, mock_process):
@@ -366,6 +376,7 @@ class GuiltTestCase(TestCase):
         self._popen_patch.stop()
         self._stdout_patch.stop()
         self._isatty_patch.stop()
+
 
     @patch('git_guilt.guilt.GitRunner.run_git')
     def test_populate_trees(self, mock_run_git):
