@@ -63,11 +63,11 @@ class GitRunner(object):
         self.version = self._get_git_version()
 
     def _git_supports_binary_diff(self):
-        for min, cur in zip(GitRunner._min_binary_ver, self.version):
-            print(min, cur)
-            if cur > min:
+        for min_supported, cur in zip(GitRunner._min_binary_ver, self.version):
+            print(min_supported, cur)
+            if cur > min_supported:
                 return True
-            elif cur < min:
+            elif cur < min_supported:
                 return False
         return True
 
@@ -77,12 +77,12 @@ class GitRunner(object):
                 return tuple([int(v) for v in ver_string.split('.')])
             except ValueError:
                 raise GitError("Malformed Git version")
-                
+
         raw_version = self.run_git(GitRunner._version_args)
-        if not (raw_version and \
-                1==len(raw_version) and \
+        if not (raw_version and
+                1 == len(raw_version) and
                 raw_version[0].startswith('git version')
-            ):
+                ):
             raise GitError("Couldn't determine Git version %s" % raw_version)
 
         return version_string_to_tuple(raw_version[0].split()[-1])

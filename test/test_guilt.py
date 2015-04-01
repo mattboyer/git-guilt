@@ -117,7 +117,7 @@ class ArgTestCase(TestCase):
         self._popen_patch = patch('git_guilt.guilt.subprocess.Popen')
         self.mocked_popen = self._popen_patch.start()
         self.mocked_popen.return_value = Mock(
-            communicate=Mock(return_value=(b'bar', None)),
+            communicate=Mock(return_value=(b'git version 2.3.4', None)),
             returncode=0,
         )
 
@@ -167,13 +167,26 @@ class ArgTestCase(TestCase):
 class GitRunnerTestCase(TestCase):
 
     def setUp(self):
+        initial_git_results = [
+                (b'git version 1.0.0\n', None),
+                (b'/my/arbitrary/path\n', None)
+            ]
+
+        def patched_popen(*args):
+            try:
+                output = initial_git_results.pop()
+            except IndexError:
+                output = (b'\n', None)
+            finally:
+                return output
+
         # We need to mock up subprocess.Popen so that the 'git' invocation
         # performed when the GitRunner object is instantiated doesn't result in
         # an actual process being forked
         self._popen_patch = patch('git_guilt.guilt.subprocess.Popen')
         self.mocked_popen = self._popen_patch.start()
         self.mocked_popen.return_value = Mock(
-            communicate=Mock(return_value=(b'git version 2.3.4', None)),
+            communicate=Mock(side_effect=patched_popen),
             returncode=0,
         )
 
@@ -184,6 +197,8 @@ class GitRunnerTestCase(TestCase):
         pass
 
     def test_version(self):
+        self.assertEquals((1, 0, 0), self.runner.version)
+
         self.runner.version = (1, 7, 1)
         self.assertFalse(self.runner._git_supports_binary_diff())
 
@@ -297,12 +312,8 @@ class GitRunnerTestCase(TestCase):
     def test_blame_locs(self, mock_run_git):
         mock_run_git.return_value = test.constants.blame_author_names.splitlines()
 
-        #blame = Mock()
-        #blame.repo_path = 'src/foo.c'
-        #blame.bucket = {'Foo Bar': 0, 'Tim Pettersen': 0}
-        runner = guilt_module.GitRunner()
         bucket = {'Foo Bar': 0, 'Tim Pettersen': 0}
-        blame = guilt_module.TextBlameTicket(runner, bucket, 'src/foo.c', 'HEAD', Mock())
+        blame = guilt_module.TextBlameTicket(self.runner, bucket, 'src/foo.c', 'HEAD', Mock())
 
         blame.process()
         self.assertEquals(
@@ -312,17 +323,13 @@ class GitRunnerTestCase(TestCase):
 
     @patch('git_guilt.guilt.GitRunner.run_git')
     def test_blame_locs_file_missing(self, mock_run_git):
-        # We need to mock out the first call to run_git
-        mock_run_git.return_value = '/my/arbitrary/git/root'
-        runner = guilt_module.GitRunner()
-
-        bucket = {'Foo Bar': 0, 'Tim Pettersen': 0}
-        blame = guilt_module.TextBlameTicket(runner, bucket, 'src/foo.c', 'HEAD', Mock())
-
         mock_run_git.side_effect = guilt_module.GitError("'git blame arbitrary path failed with:\nfatal: no such path 'src/foo.c' in HEAD")
 
+        bucket = {'Foo Bar': 0, 'Tim Pettersen': 0}
+        blame = guilt_module.TextBlameTicket(self.runner, bucket, 'src/foo.c', 'HEAD', Mock())
+
         self.assertEquals(None, blame.process())
-        # THe bucket is unchanged
+        # The bucket is unchanged
         self.assertEquals(
             {'Foo Bar': 0, 'Tim Pettersen': 0},
             blame.bucket
@@ -350,13 +357,26 @@ class GitRunnerTestCase(TestCase):
 class GuiltTestCase(TestCase):
 
     def setUp(self):
+        initial_git_results = [
+                (b'git version 1.0.0\n', None),
+                (b'/my/arbitrary/path\n', None)
+            ]
+
+        def patched_popen(*args):
+            try:
+                output = initial_git_results.pop()
+            except IndexError:
+                output = (b'\n', None)
+            finally:
+                return output
+
         # We need to mock up subprocess.Popen so that the 'git' invocation
         # performed when the GitRunner object is instantiated doesn't result in
         # an actual process being forked
         self._popen_patch = patch('git_guilt.guilt.subprocess.Popen')
         self.mocked_popen = self._popen_patch.start()
         self.mocked_popen.return_value = Mock(
-            communicate=Mock(return_value=(b'bar', None)),
+            communicate=Mock(side_effect=patched_popen),
             returncode=0,
         )
 
