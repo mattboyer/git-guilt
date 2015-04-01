@@ -61,6 +61,8 @@ def read_release_version():
         with open(get_release_version_path(), "r") as f:
             version = f.readlines()[0]
             return version.strip()
+    except IOError:
+        return None
     except OSError:
         return None
 
