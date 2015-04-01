@@ -62,7 +62,7 @@ class GitRunner(object):
         self._get_git_root()
         self.version = self._get_git_version()
 
-    def _git_supports_binary_diff(self):
+    def git_supports_binary_diff(self):
         for min_supported, cur in zip(GitRunner._min_binary_ver, self.version):
             print(min_supported, cur)
             if cur > min_supported:
@@ -644,26 +644,27 @@ class PyGuilt(object):
                 )
             )
 
-        for repo_path in sorted(binary_files):
-            self.blame_jobs.append(
-                BinaryBlameTicket(
-                    self.runner,
-                    self.byte_ownership_since,
-                    repo_path,
-                    self.args.since,
-                    self.args
+        if self.runner.git_supports_binary_diff():
+            for repo_path in sorted(binary_files):
+                self.blame_jobs.append(
+                    BinaryBlameTicket(
+                        self.runner,
+                        self.byte_ownership_since,
+                        repo_path,
+                        self.args.since,
+                        self.args
+                    )
                 )
-            )
 
-            self.blame_jobs.append(
-                BinaryBlameTicket(
-                    self.runner,
-                    self.byte_ownership_until,
-                    repo_path,
-                    self.args.until,
-                    self.args
+                self.blame_jobs.append(
+                    BinaryBlameTicket(
+                        self.runner,
+                        self.byte_ownership_until,
+                        repo_path,
+                        self.args.until,
+                        self.args
+                    )
                 )
-            )
 
         # Process all blame tickets in the self.blame_jobs queue
         # TODO This should be made parallel
