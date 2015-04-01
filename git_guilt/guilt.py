@@ -53,11 +53,38 @@ class GitError(Exception):
 
 class GitRunner(object):
     _toplevel_args = ['rev-parse', '--show-toplevel']
+    _version_args = ['--version']
     _git_executable = 'git'
+    _min_binary_ver = (1, 7, 2)
 
     def __init__(self):
         self._git_toplevel = None
         self._get_git_root()
+        self.version = self._get_git_version()
+
+    def git_supports_binary_diff(self):
+        for min_supported, cur in zip(GitRunner._min_binary_ver, self.version):
+            if cur > min_supported:
+                return True
+            elif cur < min_supported:
+                return False
+        return True
+
+    def _get_git_version(self):
+        def version_string_to_tuple(ver_string):
+            try:
+                return tuple([int(v) for v in ver_string.split('.')])
+            except ValueError:
+                raise GitError("Malformed Git version")
+
+        raw_version = self.run_git(GitRunner._version_args)
+        if not (raw_version and
+                1 == len(raw_version) and
+                raw_version[0].startswith('git version')
+                ):
+            raise GitError("Couldn't determine Git version %s" % raw_version)
+
+        return version_string_to_tuple(raw_version[0].split()[-1])
 
     def _get_git_root(self):
         # We should probably go beyond just finding the root dir for the Git
@@ -241,7 +268,6 @@ class TextBlameTicket(BlameTicket):
             if 'no output' in str(ve).lower():
                 return
 
-        # TODO For now default to extracting names
         for line in lines:
             matches = self.name_regex.match(line)
             if matches:
@@ -300,7 +326,6 @@ class BinaryBlameTicket(BlameTicket):
                 else:
                     raise ge
 
-        # TODO For now default to extracting names
         for line in lines:
             matches = self.name_regex.match(line)
             if matches:
@@ -618,26 +643,27 @@ class PyGuilt(object):
                 )
             )
 
-        for repo_path in sorted(binary_files):
-            self.blame_jobs.append(
-                BinaryBlameTicket(
-                    self.runner,
-                    self.byte_ownership_since,
-                    repo_path,
-                    self.args.since,
-                    self.args
+        if self.runner.git_supports_binary_diff():
+            for repo_path in sorted(binary_files):
+                self.blame_jobs.append(
+                    BinaryBlameTicket(
+                        self.runner,
+                        self.byte_ownership_since,
+                        repo_path,
+                        self.args.since,
+                        self.args
+                    )
                 )
-            )
 
-            self.blame_jobs.append(
-                BinaryBlameTicket(
-                    self.runner,
-                    self.byte_ownership_until,
-                    repo_path,
-                    self.args.until,
-                    self.args
+                self.blame_jobs.append(
+                    BinaryBlameTicket(
+                        self.runner,
+                        self.byte_ownership_until,
+                        repo_path,
+                        self.args.until,
+                        self.args
+                    )
                 )
-            )
 
         # Process all blame tickets in the self.blame_jobs queue
         # TODO This should be made parallel
@@ -743,26 +769,23 @@ revisions of a repository.
         '''.strip(),
     )
     parser.add_argument(
-        '-w', '--whitespace',
-        action='store_true',
-        help='Causes git-guilt to ignore lines that only include whitespace '
-        'characters',
-    )
-    parser.add_argument(
         '-e', '--email',
         action='store_true',
         help='Causes git-guilt to report transfers of ownership using '
         'authors\' email addresses instead of their names',
     )
+
+    # TODO Surely there can be sensible defaults for the since and until revs
     parser.add_argument(
         'since',
+        metavar='since',
         nargs='?',
-        help='The revision since which the transfer of blame should be '
-        'reported',
+        help='The revision starting from which the transfer of blame should '
+        'be reported',
     )
-    # Surely until should default to something sensible
     parser.add_argument(
         'until',
+        metavar='until',
         nargs='?',
         help='The revision until which the transfer of blame should be '
         'reported',
