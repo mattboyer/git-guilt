@@ -46,7 +46,7 @@ def call_git_describe(abbrev=4):
 
     output = runner.run_git(['describe', '--long', '--abbrev=%d' % abbrev])
     tag = output[0].strip()
-    release, commits_ahead, hash = tag.split('-')
+    release, commits_ahead, _ = tag.split('-')
     commits_ahead = int(commits_ahead)
     if commits_ahead:
         if 'master' == branch:
@@ -56,15 +56,14 @@ def call_git_describe(abbrev=4):
     else:
         return release
 
-
-
-
 def read_release_version():
     try:
         with open(get_release_version_path(), "r") as f:
             version = f.readlines()[0]
             return version.strip()
-    except:
+    except IOError:
+        return None
+    except OSError:
         return None
 
 def get_release_version_path():
@@ -86,7 +85,7 @@ def get_git_version(abbrev=4):
     # First try to get the current version using “git describe”.
     try:
         version = call_git_describe(abbrev)
-    except:
+    except GitError:
         # We're probably operating from a source dist
         version = None
 

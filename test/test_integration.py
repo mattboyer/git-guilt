@@ -72,23 +72,21 @@ class IntegrationTests(TestCase):
         o, e = self.run_cli('-h')
         self.assertEquals(b'', e)
 
-        expected_stdout = u'''usage: git guilt [-h] [-w] [-e] [since] [until]
+        expected_stdout = u'''usage: git guilt [-h] [-e] [since] [until]
 
 git-guilt is a custom tool written for git(1). It provides information
 regarding the transfer of ownership between two revisions of a repository.
 
 positional arguments:
-  since             The revision since which the transfer of blame should be
-                    reported
-  until             The revision until which the transfer of blame should be
-                    reported
+  since        The revision starting from which the transfer of blame should
+               be reported
+  until        The revision until which the transfer of blame should be
+               reported
 
 optional arguments:
-  -h, --help        show this help message and exit
-  -w, --whitespace  Causes git-guilt to ignore lines that only include
-                    whitespace characters
-  -e, --email       Causes git-guilt to report transfers of ownership using
-                    authors' email addresses instead of their names
+  -h, --help   show this help message and exit
+  -e, --email  Causes git-guilt to report transfers of ownership using
+               authors' email addresses instead of their names
 '''
 
         self.assertEquals(self.prepare_expected_string(expected_stdout), o)
