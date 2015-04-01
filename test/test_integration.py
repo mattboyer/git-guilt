@@ -104,8 +104,8 @@ optional arguments:
         self.assertEquals(b'', e)
         expected_stdout = u''' 张三李四      |  2 ++
  Latin McAscii | -4 ----
-
- Latin McAscii | 512 (0->512) bytes
+---
+ Latin McAscii | Bin 0 -> 512 bytes
 '''
         self.assertEquals(self.prepare_expected_string(expected_stdout), o)
 
@@ -114,9 +114,9 @@ optional arguments:
         self.assertEquals(b'', e)
         expected_stdout = u''' 张三李四      |  2 ++
  Latin McAscii | -4 ----
-
- Latin McAscii | 501 (0->501) bytes
- 张三李四      |  11 (0->11) bytes
+---
+ Latin McAscii | Bin 0 -> 501 bytes
+ 张三李四      | Bin 0 -> 11 bytes
 '''
         self.assertEquals(self.prepare_expected_string(expected_stdout), o)
 
@@ -126,8 +126,7 @@ optional arguments:
         # do not impact their overall ownership of the repository
         o, e = self.run_cli('f410635b54ad97bbeb0d28c8ac32ada55d92fcf2 45c19e994880fda771c03a98e8f38cce877cfe91')
         self.assertEquals(b'', e)
-        expected_stdout = u'''
- Latin McAscii | 512 (0->512) bytes
+        expected_stdout = u''' Latin McAscii | Bin 0 -> 512 bytes
 '''
         self.assertEquals(self.prepare_expected_string(expected_stdout), o)
 
@@ -136,9 +135,8 @@ optional arguments:
         o, e = self.run_cli('f410635b54ad97bbeb0d28c8ac32ada55d92fcf2 b6633ac3fc3177b8d293c2e6ab2f5e576ee70977')
 
         self.assertEquals(b'', e)
-        expected_stdout = u'''
- Latin McAscii | 501 (0->501) bytes
- 张三李四      |  11 (0->11) bytes
+        expected_stdout = u''' Latin McAscii | Bin 0 -> 501 bytes
+ 张三李四      | Bin 0 -> 11 bytes
 '''
         self.assertEquals(self.prepare_expected_string(expected_stdout), o)
 
@@ -147,8 +145,7 @@ optional arguments:
         o, e = self.run_cli('f410635b54ad97bbeb0d28c8ac32ada55d92fcf2 b6633ac3fc3177b8d293c2e6ab2f5e576ee70977')
 
         self.assertEquals(b'', e)
-        expected_stdout = u'''
- Latin McAscii | 501 (0->501) bytes
- 张三李四      |  11 (0->11) bytes
+        expected_stdout = u''' Latin McAscii | Bin 0 -> 501 bytes
+ 张三李四      | Bin 0 -> 11 bytes
 '''
         self.assertEquals(self.prepare_expected_string(expected_stdout), o)
