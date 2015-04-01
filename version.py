@@ -46,7 +46,7 @@ def call_git_describe(abbrev=4):
 
     output = runner.run_git(['describe', '--long', '--abbrev=%d' % abbrev])
     tag = output[0].strip()
-    release, commits_ahead, hash = tag.split('-')
+    release, commits_ahead, _ = tag.split('-')
     commits_ahead = int(commits_ahead)
     if commits_ahead:
         if 'master' == branch:
