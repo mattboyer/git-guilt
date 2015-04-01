@@ -200,13 +200,13 @@ class GitRunnerTestCase(TestCase):
         self.assertEquals((1, 0, 0), self.runner.version)
 
         self.runner.version = (1, 7, 1)
-        self.assertFalse(self.runner._git_supports_binary_diff())
+        self.assertFalse(self.runner.git_supports_binary_diff())
 
         self.runner.version = (1, 7, 2)
-        self.assertTrue(self.runner._git_supports_binary_diff())
+        self.assertTrue(self.runner.git_supports_binary_diff())
 
         self.runner.version = (2, 3, 4)
-        self.assertTrue(self.runner._git_supports_binary_diff())
+        self.assertTrue(self.runner.git_supports_binary_diff())
 
     @patch('git_guilt.guilt.subprocess.Popen')
     def test_run_git_cwd(self, mock_process):
