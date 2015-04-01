@@ -326,6 +326,18 @@ class Formatter(object):
         return sum([2 if unicodedata.east_asian_width(c) in wide else 1
                     for c in unicode_string])
 
+    def red(self, text):
+        if self._is_tty:
+            return ''.join((Formatter._red, str(text), Formatter._normal))
+        else:
+            return str(text)
+
+    def green(self, text):
+        if self._is_tty:
+            return ''.join((Formatter._green, str(text), Formatter._normal))
+        else:
+            return str(text)
+
     @property
     def longest_name(self):
         return len(max(
@@ -384,8 +396,6 @@ class Formatter(object):
             return Formatter._default_width
 
     def show_guilt_stats(self):
-        # TODO Do something like diffstat's number of files changed, number or
-        # insertions and number of deletions
         for delta in self.deltas:
             if delta.count:
                 Formatter.terminal_output(self.format(delta), sys.stdout)
@@ -415,13 +425,9 @@ class Formatter(object):
         graph_width = self._scale_bargraph(abs(delta.count))
 
         if delta.count > 0:
-            bargraph = '+' * graph_width
-            if self._is_tty:
-                bargraph = Formatter._green + bargraph + Formatter._normal
+            bargraph = self.green('+' * graph_width)
         elif delta.count < 0:
-            bargraph = '-' * graph_width
-            if self._is_tty:
-                bargraph = Formatter._red + bargraph + Formatter._normal
+            bargraph = self.red('-' * graph_width)
 
         return u" {author} | {count} {bargraph}".format(
             author=delta.author.ljust(
@@ -433,14 +439,22 @@ class Formatter(object):
         )
 
     def _format_byte_delta(self, delta):
-        return u" {author} | {count} ({since}->{until}) bytes".format(
+        since_bytes = until_bytes = ''
+        if delta.since_locs < delta.until_locs:
+            since_bytes = self.red(delta.since_locs)
+            until_bytes = self.green(delta.until_locs)
+        elif delta.until_locs < delta.since_locs:
+            since_bytes = self.green(delta.since_locs)
+            until_bytes = self.red(delta.until_locs)
+
+        return u" {author} | {count} {since} -> {until} bytes".format(
             author=delta.author.ljust(
                 self.longest_name - Formatter.term_width(delta.author) +
                 len(delta.author)
             ),
-            count=str(delta.count).rjust(self.longest_count),
-            since=delta.since_locs,
-            until=delta.until_locs,
+            count='Bin'.rjust(self.longest_count),
+            since=since_bytes,
+            until=until_bytes,
         )
 
 
@@ -718,8 +732,8 @@ class PyGuilt(object):
             self.reduce_blames()
             self.loc_formatter.show_guilt_stats()
             if self.byte_deltas:
-                # Insert an empty line before binary file guilt stats are shown
-                Formatter.terminal_output('', sys.stdout)
+                if self.loc_deltas:
+                    Formatter.terminal_output('---', sys.stdout)
                 self.byte_formatter.show_guilt_stats()
             return 0
 
