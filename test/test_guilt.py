@@ -490,13 +490,14 @@ class TextBlameTests(TestCase):
         self._popen_patch.stop()
 
         self.bucket = {'Foo Bar': 0, 'Tim Pettersen': 0}
+        self.ver_file = guilt_module.VersionedFile('src/foo.c', 'HEAD')
 
     def tearDown(self):
         pass
 
     def test_text_blame_repr(self):
         bucket = {'Foo Bar': 0, 'Tim Pettersen': 0}
-        blame = guilt_module.TextBlameTicket(self.runner, bucket, 'src/foo.c', 'HEAD', Mock())
+        blame = guilt_module.TextBlameTicket(self.runner, bucket, self.ver_file, Mock())
         self.assertEquals(
             '<TextBlame HEAD:"src/foo.c">',
             repr(blame)
@@ -506,7 +507,7 @@ class TextBlameTests(TestCase):
     def test_blame_locs(self, mock_run_git):
         mock_run_git.return_value = test.constants.blame_author_names.splitlines()
 
-        blame = guilt_module.TextBlameTicket(self.runner, self.bucket, 'src/foo.c', 'HEAD', Mock())
+        blame = guilt_module.TextBlameTicket(self.runner, self.bucket, self.ver_file, Mock())
 
         blame.process()
         self.assertEquals(
@@ -518,7 +519,7 @@ class TextBlameTests(TestCase):
     def test_blame_locs_file_missing(self, mock_run_git):
         mock_run_git.side_effect = guilt_module.GitError("'git blame arbitrary path failed with:\nfatal: no such path 'src/foo.c' in HEAD")
 
-        blame = guilt_module.TextBlameTicket(self.runner, self.bucket, 'src/foo.c', 'HEAD', Mock())
+        blame = guilt_module.TextBlameTicket(self.runner, self.bucket, self.ver_file, Mock())
 
         self.assertEquals(None, blame.process())
         # The bucket is unchanged
@@ -531,7 +532,7 @@ class TextBlameTests(TestCase):
     def test_blame_locs_exception(self, mock_run_git):
         mock_run_git.side_effect = guilt_module.GitError
 
-        blame = guilt_module.TextBlameTicket(self.runner, self.bucket, 'src/foo.c', 'HEAD', Mock())
+        blame = guilt_module.TextBlameTicket(self.runner, self.bucket, self.ver_file, Mock())
 
         self.assertRaises(guilt_module.GitError, blame.process)
 
@@ -539,7 +540,7 @@ class TextBlameTests(TestCase):
     def test_blame_locs_empty_file(self, mock_run_git):
         mock_run_git.side_effect = ValueError('No output')
 
-        blame = guilt_module.TextBlameTicket(self.runner, self.bucket, 'src/foo.c', 'HEAD', Mock())
+        blame = guilt_module.TextBlameTicket(self.runner, self.bucket, self.ver_file, Mock())
         self.assertEquals(None, blame.process())
 
         # The bucket is unchanged
@@ -577,6 +578,7 @@ class BinaryBlameTests(TestCase):
 
         self.runner = guilt_module.GitRunner()
         self.bucket = {'Foo Bar': 0, 'Tim Pettersen': 0}
+        self.ver_file = guilt_module.VersionedFile('bin/a.out', 'HEAD')
         self._popen_patch.stop()
 
     def tearDown(self):
@@ -584,7 +586,7 @@ class BinaryBlameTests(TestCase):
 
     def test_bin_blame_repr(self):
         bucket = {'Foo Bar': 0, 'Tim Pettersen': 0}
-        blame = guilt_module.BinaryBlameTicket(self.runner, bucket, 'bin/a.out', 'HEAD', Mock())
+        blame = guilt_module.BinaryBlameTicket(self.runner, bucket, self.ver_file, Mock())
         self.assertEquals(
             '<BinaryBlame HEAD:"bin/a.out">',
             repr(blame)
@@ -594,7 +596,7 @@ class BinaryBlameTests(TestCase):
     def test_blame_bytes(self, mock_run_git):
         mock_run_git.return_value = test.constants.blame_author_names.splitlines()
 
-        blame = guilt_module.BinaryBlameTicket(self.runner, self.bucket, 'foo.bin', 'HEAD', Mock())
+        blame = guilt_module.BinaryBlameTicket(self.runner, self.bucket, self.ver_file, Mock())
 
         blame.process()
         self.assertEquals(
@@ -606,7 +608,7 @@ class BinaryBlameTests(TestCase):
     def test_blame_bytes_file_missing(self, mock_run_git):
         mock_run_git.side_effect = guilt_module.GitError("'git blame arbitrary path failed with:\nfatal: no such path 'src/foo.c' in HEAD")
 
-        blame = guilt_module.BinaryBlameTicket(self.runner, self.bucket, 'foo.bin', 'HEAD', Mock())
+        blame = guilt_module.BinaryBlameTicket(self.runner, self.bucket, self.ver_file, Mock())
 
         self.assertEquals(None, blame.process())
         # The bucket is unchanged
@@ -619,7 +621,7 @@ class BinaryBlameTests(TestCase):
     def test_blame_bytes_locs_exception(self, mock_run_git):
         mock_run_git.side_effect = guilt_module.GitError
 
-        blame = guilt_module.BinaryBlameTicket(self.runner, self.bucket, 'foo.bin', 'HEAD', Mock())
+        blame = guilt_module.BinaryBlameTicket(self.runner, self.bucket, self.ver_file, Mock())
 
         self.assertRaises(guilt_module.GitError, blame.process)
 
@@ -627,7 +629,7 @@ class BinaryBlameTests(TestCase):
     def test_blame_bytes_empty_file(self, mock_run_git):
         mock_run_git.side_effect = ValueError('No output')
 
-        blame = guilt_module.BinaryBlameTicket(self.runner, self.bucket, 'foo.bin', 'HEAD', Mock())
+        blame = guilt_module.BinaryBlameTicket(self.runner, self.bucket, self.ver_file, Mock())
         self.assertEquals(None, blame.process())
 
         # The bucket is unchanged
@@ -726,20 +728,20 @@ class GuiltTestCase(TestCase):
         self.guilt.trees['until'] = ['in_since_and_until', 'not_in_since']
 
         def mock_blame_logic(blame):
-            if 'not_in_since' == blame.repo_path:
-                if 'since' == blame.rev:
+            if 'not_in_since' == blame.versioned_file.repo_path:
+                if 'since' == blame.versioned_file.git_revision:
                     blame.exists = False
-                elif 'until' == blame.rev:
+                elif 'until' == blame.versioned_file.git_revision:
                     blame.exists = True
                     blame.bucket['Alice'] += 20
                     blame.bucket['Bob'] += 5
-            elif 'in_since_and_until' == blame.repo_path:
+            elif 'in_since_and_until' == blame.versioned_file.repo_path:
                 blame.exists = True
-                if 'since' == blame.rev:
+                if 'since' == blame.versioned_file.git_revision:
                     blame.bucket['Alice'] += 12
                     blame.bucket['Bob'] += 8
                     blame.bucket['Dave'] += 4
-                elif 'until' == blame.rev:
+                elif 'until' == blame.versioned_file.git_revision:
                     blame.exists = True
                     blame.bucket['Alice'] += 18
                     blame.bucket['Bob'] += 2
@@ -797,17 +799,17 @@ class GuiltTestCase(TestCase):
 
 
         def mock_blame_logic(blame):
-            if 'foo.c' == blame.repo_path:
-                if 'HEAD~4' == blame.rev:
+            if 'foo.c' == blame.versioned_file.repo_path:
+                if 'HEAD~4' == blame.versioned_file.git_revision:
                     blame.bucket['Alice'] += 20
                     blame.bucket['Bob'] += 5
-                elif 'HEAD~1' == blame.rev:
+                elif 'HEAD~1' == blame.versioned_file.git_revision:
                     blame.bucket['Carol'] += 2
 
-            elif 'foo.h' == blame.repo_path:
-                if 'HEAD~4' == blame.rev:
+            elif 'foo.h' == blame.versioned_file.repo_path:
+                if 'HEAD~4' == blame.versioned_file.git_revision:
                     blame.bucket['Alice'] += 12
-                elif 'HEAD~1' == blame.rev:
+                elif 'HEAD~1' == blame.versioned_file.git_revision:
                     blame.bucket['Alice'] += 18
 
         # FIXME This monkey patching is ugly and should be handled through Mock
@@ -821,10 +823,10 @@ class GuiltTestCase(TestCase):
             self.assertEquals(4, len(self.guilt.blame_jobs))
             self.assertEquals(
                 [
-                    guilt_module.TextBlameTicket(self.guilt.runner, self.guilt.loc_ownership_since, 'foo.c', 'HEAD~4', Mock()),
-                    guilt_module.TextBlameTicket(self.guilt.runner, self.guilt.loc_ownership_until, 'foo.c', 'HEAD~1', Mock()),
-                    guilt_module.TextBlameTicket(self.guilt.runner, self.guilt.loc_ownership_since, 'foo.h', 'HEAD~4', Mock()),
-                    guilt_module.TextBlameTicket(self.guilt.runner, self.guilt.loc_ownership_until, 'foo.h', 'HEAD~1', Mock()),
+                    guilt_module.TextBlameTicket(self.guilt.runner, self.guilt.loc_ownership_since, guilt_module.VersionedFile('foo.c', 'HEAD~4'), Mock()),
+                    guilt_module.TextBlameTicket(self.guilt.runner, self.guilt.loc_ownership_until, guilt_module.VersionedFile('foo.c', 'HEAD~1'), Mock()),
+                    guilt_module.TextBlameTicket(self.guilt.runner, self.guilt.loc_ownership_since, guilt_module.VersionedFile('foo.h', 'HEAD~4'), Mock()),
+                    guilt_module.TextBlameTicket(self.guilt.runner, self.guilt.loc_ownership_until, guilt_module.VersionedFile('foo.h', 'HEAD~1'), Mock()),
                 ],
                 self.guilt.blame_jobs
             )
@@ -864,17 +866,17 @@ class GuiltTestCase(TestCase):
 
 
         def mock_blame_logic(blame):
-            if 'foo.bin' == blame.repo_path:
-                if 'HEAD~4' == blame.rev:
+            if 'foo.bin' == blame.versioned_file.repo_path:
+                if 'HEAD~4' == blame.versioned_file.git_revision:
                     blame.bucket['Alice'] += 20
                     blame.bucket['Bob'] += 5
-                elif 'HEAD~1' == blame.rev:
+                elif 'HEAD~1' == blame.versioned_file.git_revision:
                     blame.bucket['Carol'] += 2
 
-            elif 'libbar.so.1.8.7' == blame.repo_path:
-                if 'HEAD~4' == blame.rev:
+            elif 'libbar.so.1.8.7' == blame.versioned_file.repo_path:
+                if 'HEAD~4' == blame.versioned_file.git_revision:
                     blame.bucket['Alice'] += 12
-                elif 'HEAD~1' == blame.rev:
+                elif 'HEAD~1' == blame.versioned_file.git_revision:
                     blame.bucket['Alice'] += 18
 
         # FIXME This monkey patching is ugly and should be handled through Mock
@@ -888,10 +890,10 @@ class GuiltTestCase(TestCase):
             self.assertEquals(4, len(self.guilt.blame_jobs))
             self.assertEquals(
                 [
-                    guilt_module.BinaryBlameTicket(self.guilt.runner, self.guilt.byte_ownership_since, 'foo.bin', 'HEAD~4', Mock()),
-                    guilt_module.BinaryBlameTicket(self.guilt.runner, self.guilt.byte_ownership_until, 'foo.bin', 'HEAD~1', Mock()),
-                    guilt_module.BinaryBlameTicket(self.guilt.runner, self.guilt.byte_ownership_since, 'libbar.so.1.8.7', 'HEAD~4', Mock()),
-                    guilt_module.BinaryBlameTicket(self.guilt.runner, self.guilt.byte_ownership_until, 'libbar.so.1.8.7', 'HEAD~1', Mock()),
+                    guilt_module.BinaryBlameTicket(self.guilt.runner, self.guilt.byte_ownership_since, guilt_module.VersionedFile('foo.bin', 'HEAD~4'), Mock()),
+                    guilt_module.BinaryBlameTicket(self.guilt.runner, self.guilt.byte_ownership_until, guilt_module.VersionedFile('foo.bin', 'HEAD~1'), Mock()),
+                    guilt_module.BinaryBlameTicket(self.guilt.runner, self.guilt.byte_ownership_since, guilt_module.VersionedFile('libbar.so.1.8.7', 'HEAD~4'), Mock()),
+                    guilt_module.BinaryBlameTicket(self.guilt.runner, self.guilt.byte_ownership_until, guilt_module.VersionedFile('libbar.so.1.8.7', 'HEAD~1'), Mock()),
                 ],
                 self.guilt.blame_jobs
             )

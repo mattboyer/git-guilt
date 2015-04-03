@@ -4,6 +4,10 @@
 .. image:: https://coveralls.io/repos/mattboyer/git-guilt/badge.svg?branch=master
     :target: https://coveralls.io/r/mattboyer/git-guilt
 
+.. image:: https://landscape.io/github/mattboyer/git-guilt/master/landscape.svg?style=flat
+    :target: https://landscape.io/github/mattboyer/git-guilt/master
+    :alt: Code Health
+
 .. image:: https://pypip.in/version/git-guilt/badge.svg
     :target: https://pypi.python.org/pypi/git-guilt/
     :alt: Latest Version
