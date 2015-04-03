@@ -940,12 +940,24 @@ class GuiltTestCase(TestCase):
         def set_byte_deltas():
             self.guilt.loc_deltas=[guilt_module.Delta('foo', 45, 25)]
             self.guilt.byte_deltas=[guilt_module.BinaryDelta('bar', 5, 78)]
-            self.guilt.loc_formatter.deltas = self.guilt.loc_deltas
-            self.guilt.byte_formatter.deltas = self.guilt.byte_deltas
 
         mock_reduce.side_effect = set_byte_deltas
 
+        # Mock stdout.fileno()
+        self._stdout_patch = patch('git_guilt.guilt.sys.stdout')
+        self.mocked_stdout = self._stdout_patch.start()
+        self.mocked_stdout.return_value = Mock(
+            fileno=Mock(return_value=1),
+        )
+
+        # Mock os.isatty
+        _isatty_patch = patch('git_guilt.guilt.os.isatty')
+        mocked_isatty = _isatty_patch.start()
+        mocked_isatty.return_value = False
+
         self.assertEquals(0, self.guilt.run())
+        #
+        _isatty_patch.stop()
         stdout_patch.stop()
 
         # Assert calls
@@ -971,7 +983,15 @@ class FormatterTestCase(TestCase):
         self.mocked_isatty = self._isatty_patch.start()
         self.mocked_isatty.return_value = False
 
-        self.formatter = guilt_module.Formatter([])
+        self.bin_delta_list = [
+            guilt_module.BinaryDelta(u'short', 30, 45),
+            guilt_module.BinaryDelta(u'Very Long Name', 10, 7)
+        ]
+        self.text_delta_list = [
+            guilt_module.Delta(u'short', 30, 45),
+            guilt_module.Delta(u'Very Long Name', 10, 7)
+        ]
+        self.formatter = guilt_module.Formatter(self.bin_delta_list, self.text_delta_list)
 
     def tearDown(self):
         self._isatty_patch.stop()
@@ -1026,11 +1046,7 @@ class FormatterTestCase(TestCase):
 
         mock_stdout = stdout_patch.start()
 
-
-        self.formatter.deltas.append(guilt_module.Delta(u'short', 30, 45))
-        self.formatter.deltas.append(guilt_module.Delta(u'Very Long Name', 10, 7))
-
-        self.formatter.show_guilt_stats()
+        self.formatter.show_guilt_stats(self.text_delta_list)
         self.assertEquals(''' short          | 15 +++++++++++++++
  Very Long Name | -3 ---
 ''',
@@ -1046,10 +1062,7 @@ class FormatterTestCase(TestCase):
 
         mock_stdout = stdout_patch.start()
 
-        self.formatter.deltas.append(guilt_module.BinaryDelta(u'short', 30, 45))
-        self.formatter.deltas.append(guilt_module.BinaryDelta(u'Very Long Name', 10, 7))
-
-        self.formatter.show_guilt_stats()
+        self.formatter.show_guilt_stats(self.bin_delta_list)
         self.assertEquals(''' short          | Bin 30 -> 45 bytes
  Very Long Name | Bin 10 -> 7 bytes
 ''',
