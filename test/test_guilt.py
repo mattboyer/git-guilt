@@ -107,6 +107,73 @@ class DeltaTestCase(TestCase):
         self.assertEquals("<Delta \"Beta\": -6 (16->10)>", repr(b))
         self.assertEquals("<Delta \"Gamma\": 0 (8->8)>", repr(c))
 
+class BinaryDeltaTestCase(TestCase):
+
+    def test_eq(self):
+        a = guilt_module.BinaryDelta('Alpha', 4, 0)
+        b = guilt_module.BinaryDelta('Beta', 6, 0)
+        self.assertFalse(a == b)
+        self.assertTrue(a != b)
+
+        b = guilt_module.BinaryDelta('Alpha', 6, 0)
+        self.assertFalse(a == b)
+        self.assertTrue(a != b)
+
+        b = guilt_module.BinaryDelta('Alpha', 4, 0)
+        self.assertTrue(a == b)
+        self.assertTrue(a <= b)
+        self.assertTrue(a >= b)
+        self.assertFalse(a != b)
+
+    def test_comparison(self):
+        a = guilt_module.BinaryDelta('Alpha', 4, 0)
+
+        # a > b because a is guilt_moduleier than b
+        b = guilt_module.BinaryDelta('Beta', 6, 0)
+
+        # Test __lt__ and __le__
+        self.assertTrue(a < b)
+        self.assertTrue(a <= b)
+        self.assertFalse(b < a)
+        self.assertFalse(b <= a)
+
+        # Test __gt__ and __ge__
+        self.assertFalse(a > b)
+        self.assertFalse(a >= b)
+        self.assertTrue(b > a)
+        self.assertTrue(b >= a)
+
+        # a and b are equally guilt_moduley, but a comes before b in a lexicographic
+        # sort
+        b = guilt_module.BinaryDelta('Beta', 4, 0)
+
+        # Test __lt__ and __le__
+        self.assertTrue(a < b)
+        self.assertTrue(a <= b)
+        self.assertFalse(b < a)
+        self.assertFalse(b <= a)
+
+        # Test __gt__ and __ge__
+        self.assertFalse(a > b)
+        self.assertFalse(a >= b)
+        self.assertTrue(b > a)
+        self.assertTrue(b >= a)
+
+        b = guilt_module.BinaryDelta('Aardvark', 4, 0)
+        self.assertFalse(a < b)
+        self.assertFalse(a <= b)
+
+        self.assertTrue(a > b)
+        self.assertTrue(a >= b)
+
+    def test_repr(self):
+        a = guilt_module.BinaryDelta('Alpha', 0, 4)
+        b = guilt_module.BinaryDelta('Beta', 16, 10)
+        c = guilt_module.BinaryDelta('Gamma', 8, 8)
+
+        self.assertEquals("<BinaryDelta \"Alpha\": 4 (0->4)>", repr(a))
+        self.assertEquals("<BinaryDelta \"Beta\": -6 (16->10)>", repr(b))
+        self.assertEquals("<BinaryDelta \"Gamma\": 0 (8->8)>", repr(c))
 
 class ArgTestCase(TestCase):
 
@@ -541,7 +608,7 @@ class GuiltTestCase(TestCase):
 
     def setUp(self):
         initial_git_results = [
-                (b'git version 1.0.0\n', None),
+                (b'git version 1.8.7\n', None),
                 (b'/my/arbitrary/path\n', None)
             ]
 
@@ -687,7 +754,7 @@ class GuiltTestCase(TestCase):
         self.guilt.trees['until'] = ['in_since_and_until']
 
     @patch('git_guilt.guilt.GitRunner.get_delta_files')
-    def test_map_blames(self, mock_get_delta):
+    def test_map_text_blames(self, mock_get_delta):
 
         mock_get_delta.return_value = set(['foo.c', 'foo.h']), set([])
 
@@ -732,6 +799,8 @@ class GuiltTestCase(TestCase):
             # Assert the ownership buckets
             self.assertEquals({'Alice': 32, 'Bob': 5}, self.guilt.loc_ownership_since)
             self.assertEquals({'Alice': 18, 'Carol': 2}, self.guilt.loc_ownership_until)
+            self.assertEquals({}, self.guilt.byte_ownership_since)
+            self.assertEquals({}, self.guilt.byte_ownership_until)
 
             self.guilt.reduce_blames()
 
@@ -746,9 +815,77 @@ class GuiltTestCase(TestCase):
                 ]
             expected_guilt.sort()
             self.assertEquals(expected_guilt, self.guilt.loc_deltas)
+            self.assertEquals([], self.guilt.byte_deltas)
 
         finally:
             guilt_module.TextBlameTicket.process = old_process
+
+    @patch('git_guilt.guilt.GitRunner.get_delta_files')
+    def test_map_binary_blames(self, mock_get_delta):
+
+        mock_get_delta.return_value = set([]), set(['foo.bin', 'libbar.so.1.8.7'])
+
+        self.guilt.args = Mock(since='HEAD~4', until='HEAD~1')
+        self.guilt.trees['HEAD~4'] = ['foo.bin', 'libbar.so.1.8.7']
+        self.guilt.trees['HEAD~1'] = ['foo.bin', 'libbar.so.1.8.7']
+
+
+        def mock_blame_logic(blame):
+            if 'foo.bin' == blame.repo_path:
+                if 'HEAD~4' == blame.rev:
+                    blame.bucket['Alice'] += 20
+                    blame.bucket['Bob'] += 5
+                elif 'HEAD~1' == blame.rev:
+                    blame.bucket['Carol'] += 2
+
+            elif 'libbar.so.1.8.7' == blame.repo_path:
+                if 'HEAD~4' == blame.rev:
+                    blame.bucket['Alice'] += 12
+                elif 'HEAD~1' == blame.rev:
+                    blame.bucket['Alice'] += 18
+
+        # FIXME This monkey patching is ugly and should be handled through Mock
+        old_process = guilt_module.BinaryBlameTicket.process
+        try:
+            guilt_module.BinaryBlameTicket.process = mock_blame_logic
+
+            self.guilt.map_blames()
+
+            # Assert the set of blame "jobs" generated by PyGuilt.map_blames()
+            self.assertEquals(4, len(self.guilt.blame_jobs))
+            self.assertEquals(
+                [
+                    guilt_module.BinaryBlameTicket(self.guilt.runner, self.guilt.byte_ownership_since, 'foo.bin', 'HEAD~4', Mock()),
+                    guilt_module.BinaryBlameTicket(self.guilt.runner, self.guilt.byte_ownership_until, 'foo.bin', 'HEAD~1', Mock()),
+                    guilt_module.BinaryBlameTicket(self.guilt.runner, self.guilt.byte_ownership_since, 'libbar.so.1.8.7', 'HEAD~4', Mock()),
+                    guilt_module.BinaryBlameTicket(self.guilt.runner, self.guilt.byte_ownership_until, 'libbar.so.1.8.7', 'HEAD~1', Mock()),
+                ],
+                self.guilt.blame_jobs
+            )
+
+            # Assert the ownership buckets
+            self.assertEquals({}, self.guilt.loc_ownership_since)
+            self.assertEquals({}, self.guilt.loc_ownership_until)
+            self.assertEquals({'Alice': 32, 'Bob': 5}, self.guilt.byte_ownership_since)
+            self.assertEquals({'Alice': 18, 'Carol': 2}, self.guilt.byte_ownership_until)
+
+            self.guilt.reduce_blames()
+
+            # Alice's share of the collective guilt has decreased from 32 to 18
+            # bytes
+            # Bob's share of the collective guilt has been wiped clean!
+            # Carol's share has increased from nothing to 2
+            expected_guilt = [
+                    guilt_module.Delta('Alice', 32, 18),
+                    guilt_module.Delta('Bob', 5, 0),
+                    guilt_module.Delta('Carol', 0, 2)
+                ]
+            expected_guilt.sort()
+            self.assertEquals(expected_guilt, self.guilt.byte_deltas)
+            self.assertEquals([], self.guilt.loc_deltas)
+
+        finally:
+            guilt_module.BinaryBlameTicket.process = old_process
 
     # Many more testcases are required!!
     @patch('git_guilt.guilt.PyGuilt.populate_trees')
@@ -790,6 +927,20 @@ class FormatterTestCase(TestCase):
 
     def test_get_width_not_tty(self):
         self.assertEquals(80, self.formatter._get_tty_width())
+
+    def test_red(self):
+        self.formatter._is_tty = True
+        self.assertEquals('\033[31mRED\033[0m', self.formatter.red('RED'))
+
+        self.formatter._is_tty = False
+        self.assertEquals('RED', self.formatter.red('RED'))
+
+    def test_green(self):
+        self.formatter._is_tty = True
+        self.assertEquals('\033[32mGREEN\033[0m', self.formatter.green('GREEN'))
+
+        self.formatter._is_tty = False
+        self.assertEquals('GREEN', self.formatter.green('GREEN'))
 
     @patch('git_guilt.guilt.fcntl.ioctl')
     def test_get_width_tty(self, mocked_ioctl):

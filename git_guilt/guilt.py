@@ -209,7 +209,7 @@ class BlameTicket(object):
         self.config_pairs['user.email'] = 'bar@example.com'
 
     def __eq__(self, blame):
-        return (self.bucket == blame.bucket) \
+        return (self.bucket is blame.bucket) \
             and (self.repo_path == blame.repo_path) \
             and (self.bucket == blame.bucket)
 
