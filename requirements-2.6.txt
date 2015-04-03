@@ -1,0 +1,8 @@
+coverage
+coveralls
+mock
+nose
+pep8
+setuptools
+Sphinx
+sphinx-argparse

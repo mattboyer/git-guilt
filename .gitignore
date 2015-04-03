@@ -1,2 +1,6 @@
-node_modules/
+git_guilt.egg-info/
+docs/man/
+docs/doctrees/
 .coverage
+*.pyc
+RELEASE-VERSION
