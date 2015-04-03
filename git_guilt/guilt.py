@@ -360,8 +360,11 @@ class Formatter(object):
     _normal = _CSI + '0m'
     _default_width = 80
 
-    def __init__(self, deltas):
-        self.deltas = deltas
+    def __init__(self, *deltas):
+        self.all_deltas = []
+        for delta_list in deltas:
+            self.all_deltas.extend(delta_list)
+
         self._is_tty = os.isatty(sys.stdout.fileno())
         self._tty_width = self._get_tty_width()
 
@@ -386,19 +389,21 @@ class Formatter(object):
     @property
     def longest_name(self):
         return len(max(
-            self.deltas, key=lambda d: Formatter.term_width(d.author)
+            self.all_deltas, key=lambda d: Formatter.term_width(d.author)
         ).author)
 
     @property
     def longest_count(self):
         return len(str(max(
-            self.deltas, key=lambda d: len(str(d.count))
+            [d for d in self.all_deltas if not isinstance(d, BinaryDelta)],
+            key=lambda d: len(str(d.count))
         ).count))
 
     @property
     def longest_bargraph(self):
         return abs(max(
-            self.deltas, key=lambda d: abs(d.count)
+            [d for d in self.all_deltas if not isinstance(d, BinaryDelta)],
+            key=lambda d: abs(d.count)
         ).count)
 
     @property
@@ -440,8 +445,8 @@ class Formatter(object):
         else:
             return Formatter._default_width
 
-    def show_guilt_stats(self):
-        for delta in self.deltas:
+    def show_guilt_stats(self, deltas):
+        for delta in deltas:
             if delta.count:
                 Formatter.terminal_output(self.format(delta), sys.stdout)
 
@@ -622,9 +627,6 @@ class PyGuilt(object):
             )
             raise SystemExit(1)
 
-        self.loc_formatter = Formatter(self.loc_deltas)
-        self.byte_formatter = Formatter(self.byte_deltas)
-
     def process_args(self):
         self.args = self.parser.parse_args()
         if not (self.args.since and self.args.until):
@@ -773,11 +775,13 @@ class PyGuilt(object):
             self.populate_trees()
             self.map_blames()
             self.reduce_blames()
-            self.loc_formatter.show_guilt_stats()
+
+            formatter = Formatter(self.loc_deltas, self.byte_deltas)
+            formatter.show_guilt_stats(self.loc_deltas)
             if self.byte_deltas:
                 if self.loc_deltas:
                     Formatter.terminal_output('---', sys.stdout)
-                self.byte_formatter.show_guilt_stats()
+                formatter.show_guilt_stats(self.byte_deltas)
             return 0
 
 
