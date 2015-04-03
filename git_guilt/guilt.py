@@ -764,10 +764,6 @@ class PyGuilt(object):
             return 0
 
 
-def main():
-    sys.exit(PyGuilt().run())
-
-
 def setup_argparser():
     '''
     Returns an instance of argparse.ArgumentParser for git-guilt
@@ -805,6 +801,11 @@ revisions of a repository.
         'reported',
     )
     return parser
+
+
+def main():
+    sys.exit(PyGuilt().run())
+
 
 if '__main__' == __name__:
     main()
