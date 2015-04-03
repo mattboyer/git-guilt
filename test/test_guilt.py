@@ -196,7 +196,48 @@ class GitRunnerTestCase(TestCase):
     def tearDown(self):
         pass
 
-    def test_version(self):
+    @patch('git_guilt.guilt.subprocess.Popen')
+    def test_version_retrieval(self, mock_process):
+        mock_process.return_value.communicate = Mock(
+            return_value=(b'git version 1.1.1', None)
+        )
+        mock_process.return_value.returncode = 0
+        mock_process.return_value.wait = \
+                Mock(return_value=None)
+
+        version_tuple = self.runner._get_git_version()
+
+        mock_process.assert_called_once_with(
+            ['nosuchgit', '--version'],
+            cwd='/my/arbitrary/path',
+            stderr=-1,
+            stdout=-1
+        )
+        mock_process.reset_mock()
+
+        self.assertEquals((1,1,1), version_tuple)
+
+        # Git gave us something that isn't a version string
+        mock_process.return_value.communicate = Mock(
+            return_value=(b'git fdsfyasdifoy', None)
+        )
+        self.assertRaises(
+            guilt_module.GitError,
+            self.runner._get_git_version
+        )
+        mock_process.reset_mock()
+
+        # Git gave us a malformed version
+        mock_process.return_value.communicate = Mock(
+            return_value=(b'git version X.Y.Z', None)
+        )
+        self.assertRaises(
+            guilt_module.GitError,
+            self.runner._get_git_version
+        )
+        mock_process.reset_mock()
+
+    def test_version_comparison(self):
         self.assertEquals((1, 0, 0), self.runner.version)
 
         self.runner.version = (1, 7, 1)
@@ -308,12 +349,41 @@ class GitRunnerTestCase(TestCase):
 
         self.assertRaises(ValueError, self.runner.get_delta_files, 'HEAD~1', 'HEAD')
 
+    def test_text_blame_repr(self):
+        bucket = {'Foo Bar': 0, 'Tim Pettersen': 0}
+        blame = guilt_module.TextBlameTicket(self.runner, bucket, 'src/foo.c', 'HEAD', Mock())
+        self.assertEquals(
+            '<TextBlame HEAD:"src/foo.c">',
+            repr(blame)
+        )
+
+    def test_bin_blame_repr(self):
+        bucket = {'Foo Bar': 0, 'Tim Pettersen': 0}
+        blame = guilt_module.BinaryBlameTicket(self.runner, bucket, 'bin/a.out', 'HEAD', Mock())
+        self.assertEquals(
+            '<BinaryBlame HEAD:"bin/a.out">',
+            repr(blame)
+        )
+
     @patch('git_guilt.guilt.GitRunner.run_git')
     def test_blame_locs(self, mock_run_git):
         mock_run_git.return_value = test.constants.blame_author_names.splitlines()
 
         bucket = {'Foo Bar': 0, 'Tim Pettersen': 0}
         blame = guilt_module.TextBlameTicket(self.runner, bucket, 'src/foo.c', 'HEAD', Mock())
+
+        blame.process()
+        self.assertEquals(
+            {'Foo Bar': 2, 'Tim Pettersen': 3},
+            blame.bucket
+        )
+
+    @patch('git_guilt.guilt.GitRunner.run_git')
+    def test_blame_bytes(self, mock_run_git):
+        mock_run_git.return_value = test.constants.blame_author_names.splitlines()
+
+        bucket = {'Foo Bar': 0, 'Tim Pettersen': 0}
+        blame = guilt_module.BinaryBlameTicket(self.runner, bucket, 'src/foo.c', 'HEAD', Mock())
 
         blame.process()
         self.assertEquals(
