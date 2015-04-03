@@ -477,7 +477,7 @@ class Formatter(object):
                 self.longest_name - Formatter.term_width(delta.author) +
                 len(delta.author)
             ),
-            count='Bin'.rjust(self.longest_count),
+            count='Bin',
             since=since_bytes,
             until=until_bytes,
         )

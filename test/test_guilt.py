@@ -603,7 +603,6 @@ class BinaryBlameTests(TestCase):
         )
 
 
-
 class GuiltTestCase(TestCase):
 
     def setUp(self):
@@ -887,22 +886,38 @@ class GuiltTestCase(TestCase):
         finally:
             guilt_module.BinaryBlameTicket.process = old_process
 
+
     # Many more testcases are required!!
     @patch('git_guilt.guilt.PyGuilt.populate_trees')
     @patch('git_guilt.guilt.Formatter.show_guilt_stats')
     @patch('git_guilt.guilt.PyGuilt.reduce_blames')
     @patch('git_guilt.guilt.PyGuilt.map_blames')
     @patch('git_guilt.guilt.PyGuilt.process_args')
-    @patch('sys.stdout', new_callable=io.BytesIO)
-    def test_show_run(self, mock_stdout, mock_process_args, mock_map, mock_reduce, mock_show, mock_pop_trees):
+    def test_show_run(self, mock_process_args, mock_map, mock_reduce, mock_show, mock_pop_trees):
+
+        if 2 == sys.version_info[0]:
+            stdout_patch = patch('sys.stdout', new_callable=io.BytesIO)
+        elif 3 == sys.version_info[0]:
+            stdout_patch = patch('sys.stdout', new_callable=io.StringIO)
+        mock_stdout = stdout_patch.start()
+
+        def set_byte_deltas():
+            self.guilt.loc_deltas=[guilt_module.Delta('foo', 45, 25)]
+            self.guilt.byte_deltas=[guilt_module.BinaryDelta('bar', 5, 78)]
+            self.guilt.loc_formatter.deltas = self.guilt.loc_deltas
+            self.guilt.byte_formatter.deltas = self.guilt.byte_deltas
+
+        mock_reduce.side_effect = set_byte_deltas
 
         self.assertEquals(0, self.guilt.run())
+        stdout_patch.stop()
+
+        # Assert calls
         mock_process_args.assert_called_once_with()
         mock_pop_trees.assert_called_once_with()
         mock_map.assert_called_once_with()
         mock_reduce.assert_called_once_with()
-
-        self.assertEquals(1, len(mock_show.mock_calls))
+        self.assertEquals(2, len(mock_show.mock_calls))
 
 
 class FormatterTestCase(TestCase):
@@ -967,7 +982,7 @@ class FormatterTestCase(TestCase):
         self.assertEquals(80, self.formatter._get_tty_width())
         del self.formatter
 
-    def test_show_guilt(self):
+    def test_show_text_guilt(self):
         if 2 == sys.version_info[0]:
             stdout_patch = patch('sys.stdout', new_callable=io.BytesIO)
         elif 3 == sys.version_info[0]:
@@ -982,6 +997,25 @@ class FormatterTestCase(TestCase):
         self.formatter.show_guilt_stats()
         self.assertEquals(''' short          | 15 +++++++++++++++
  Very Long Name | -3 ---
+''',
+            mock_stdout.getvalue()
+        )
+        stdout_patch.stop()
+
+    def test_show_binary_guilt(self):
+        if 2 == sys.version_info[0]:
+            stdout_patch = patch('sys.stdout', new_callable=io.BytesIO)
+        elif 3 == sys.version_info[0]:
+            stdout_patch = patch('sys.stdout', new_callable=io.StringIO)
+
+        mock_stdout = stdout_patch.start()
+
+        self.formatter.deltas.append(guilt_module.BinaryDelta(u'short', 30, 45))
+        self.formatter.deltas.append(guilt_module.BinaryDelta(u'Very Long Name', 10, 7))
+
+        self.formatter.show_guilt_stats()
+        self.assertEquals(''' short          | Bin 30 -> 45 bytes
+ Very Long Name | Bin 10 -> 7 bytes
 ''',
             mock_stdout.getvalue()
         )
