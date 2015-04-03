@@ -210,10 +210,9 @@ class VersionedFile(object):
 
 class BlameTicket(object):
     '''A queued blame. This is a TODO item, really'''
-    _author_regex = r'^[^(]*\((.*?) \d{4}-\d{2}-\d{2}'
+    _author_regex = re.compile(r'^[^(]*\((.*?) \d{4}-\d{2}-\d{2}')
 
     def __init__(self, bucket, versioned_file, args):
-        self.name_regex = re.compile(self._author_regex)
 
         self.bucket = bucket
         self.versioned_file = versioned_file
@@ -291,7 +290,7 @@ class TextBlameTicket(BlameTicket):
                 return
 
         for line in lines:
-            matches = self.name_regex.match(line)
+            matches = BlameTicket._author_regex.match(line)
             if matches:
                 line_author = matches.group(1).strip()
                 self.bucket[line_author] += 1
@@ -348,7 +347,7 @@ class BinaryBlameTicket(BlameTicket):
                     return
 
         for line in lines:
-            matches = self.name_regex.match(line)
+            matches = BlameTicket._author_regex.match(line)
             if matches:
                 line_author = matches.group(1).strip()
                 self.bucket[line_author] += 1
