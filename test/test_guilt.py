@@ -576,6 +576,7 @@ class BinaryBlameTests(TestCase):
         )
 
         self.runner = guilt_module.GitRunner()
+        self.bucket = {'Foo Bar': 0, 'Tim Pettersen': 0}
         self._popen_patch.stop()
 
     def tearDown(self):
@@ -593,12 +594,45 @@ class BinaryBlameTests(TestCase):
     def test_blame_bytes(self, mock_run_git):
         mock_run_git.return_value = test.constants.blame_author_names.splitlines()
 
-        bucket = {'Foo Bar': 0, 'Tim Pettersen': 0}
-        blame = guilt_module.BinaryBlameTicket(self.runner, bucket, 'src/foo.c', 'HEAD', Mock())
+        blame = guilt_module.BinaryBlameTicket(self.runner, self.bucket, 'foo.bin', 'HEAD', Mock())
 
         blame.process()
         self.assertEquals(
             {'Foo Bar': 2, 'Tim Pettersen': 3},
+            blame.bucket
+        )
+
+    @patch('git_guilt.guilt.GitRunner.run_git')
+    def test_blame_bytes_file_missing(self, mock_run_git):
+        mock_run_git.side_effect = guilt_module.GitError("'git blame arbitrary path failed with:\nfatal: no such path 'src/foo.c' in HEAD")
+
+        blame = guilt_module.BinaryBlameTicket(self.runner, self.bucket, 'foo.bin', 'HEAD', Mock())
+
+        self.assertEquals(None, blame.process())
+        # The bucket is unchanged
+        self.assertEquals(
+            {'Foo Bar': 0, 'Tim Pettersen': 0},
+            blame.bucket
+        )
+
+    @patch('git_guilt.guilt.GitRunner.run_git')
+    def test_blame_bytes_locs_exception(self, mock_run_git):
+        mock_run_git.side_effect = guilt_module.GitError
+
+        blame = guilt_module.BinaryBlameTicket(self.runner, self.bucket, 'foo.bin', 'HEAD', Mock())
+
+        self.assertRaises(guilt_module.GitError, blame.process)
+
+    @patch('git_guilt.guilt.GitRunner.run_git')
+    def test_blame_bytes_empty_file(self, mock_run_git):
+        mock_run_git.side_effect = ValueError('No output')
+
+        blame = guilt_module.BinaryBlameTicket(self.runner, self.bucket, 'foo.bin', 'HEAD', Mock())
+        self.assertEquals(None, blame.process())
+
+        # The bucket is unchanged
+        self.assertEquals(
+            {'Foo Bar': 0, 'Tim Pettersen': 0},
             blame.bucket
         )
 

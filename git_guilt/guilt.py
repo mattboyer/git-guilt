@@ -325,6 +325,10 @@ class BinaryBlameTicket(BlameTicket):
                     return None
                 else:
                     raise ge
+            except ValueError as ve:
+                # Not having any output is actually OK if we have an empty file
+                if 'no output' in str(ve).lower():
+                    return
 
         for line in lines:
             matches = self.name_regex.match(line)
