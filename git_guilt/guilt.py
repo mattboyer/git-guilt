@@ -395,13 +395,15 @@ class Formatter(object):
     @property
     def longest_count(self):
         return len(str(max(
-            [d for d in self.all_deltas if not isinstance(d, BinaryDelta)], key=lambda d: len(str(d.count))
+            [d for d in self.all_deltas if not isinstance(d, BinaryDelta)],
+            key=lambda d: len(str(d.count))
         ).count))
 
     @property
     def longest_bargraph(self):
         return abs(max(
-            [d for d in self.all_deltas if not isinstance(d, BinaryDelta)], key=lambda d: abs(d.count)
+            [d for d in self.all_deltas if not isinstance(d, BinaryDelta)],
+            key=lambda d: abs(d.count)
         ).count)
 
     @property
