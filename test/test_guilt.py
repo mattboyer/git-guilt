@@ -565,7 +565,6 @@ class GuiltTestCase(TestCase):
         self._stdout_patch.stop()
         self._isatty_patch.stop()
 
-
     @patch('git_guilt.guilt.GitRunner.run_git')
     def test_populate_trees(self, mock_run_git):
         self.guilt.args = Mock(since='HEAD~4', until='HEAD~1')
@@ -731,8 +730,8 @@ class GuiltTestCase(TestCase):
                     guilt_module.Delta('Carol', 0, 2)
                 ]
             expected_guilt.sort()
+            self.assertEquals(expected_guilt, self.guilt.loc_deltas)
 
-            #self.assertEquals(expected_guilt, self.guilt.loc_deltas)
         finally:
             guilt_module.TextBlameTicket.process = old_process
 
