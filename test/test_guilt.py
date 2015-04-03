@@ -460,11 +460,26 @@ class TextBlameTests(TestCase):
             blame.bucket
         )
 
+    @patch('git_guilt.guilt.GitRunner.run_git')
+    def test_blame_locs_exception(self, mock_run_git):
+        mock_run_git.side_effect = guilt_module.GitError
 
+        blame = guilt_module.TextBlameTicket(self.runner, self.bucket, 'src/foo.c', 'HEAD', Mock())
 
+        self.assertRaises(guilt_module.GitError, blame.process)
 
+    @patch('git_guilt.guilt.GitRunner.run_git')
+    def test_blame_locs_empty_file(self, mock_run_git):
+        mock_run_git.side_effect = ValueError('No output')
 
+        blame = guilt_module.TextBlameTicket(self.runner, self.bucket, 'src/foo.c', 'HEAD', Mock())
+        self.assertEquals(None, blame.process())
 
+        # The bucket is unchanged
+        self.assertEquals(
+            {'Foo Bar': 0, 'Tim Pettersen': 0},
+            blame.bucket
+        )
 
 
 class BinaryBlameTests(TestCase):
