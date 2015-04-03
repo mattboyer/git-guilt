@@ -209,7 +209,7 @@ class BlameTicket(object):
         self.config_pairs['user.email'] = 'bar@example.com'
 
     def __eq__(self, blame):
-        return (self.bucket == blame.bucket) \
+        return (self.bucket is blame.bucket) \
             and (self.repo_path == blame.repo_path) \
             and (self.bucket == blame.bucket)
 
@@ -325,6 +325,10 @@ class BinaryBlameTicket(BlameTicket):
                     return None
                 else:
                     raise ge
+            except ValueError as ve:
+                # Not having any output is actually OK if we have an empty file
+                if 'no output' in str(ve).lower():
+                    return
 
         for line in lines:
             matches = self.name_regex.match(line)
@@ -477,7 +481,7 @@ class Formatter(object):
                 self.longest_name - Formatter.term_width(delta.author) +
                 len(delta.author)
             ),
-            count='Bin'.rjust(self.longest_count),
+            count='Bin',
             since=since_bytes,
             until=until_bytes,
         )
