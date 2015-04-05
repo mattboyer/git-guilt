@@ -284,6 +284,18 @@ class TextBlameTicket(BlameTicket):
                 return None
             else:
                 raise ge
+        # It may happen that a binary file isn't marked as such by Git.
+        # When that happens, we'll process any file content that appears in
+        # Git's output (eg. for git-blame) as if it were a text file but there
+        # is no guarantee that the file's bytes will be valid UTF8-encoded
+        # Unicode text.
+        # We should fail gracefully in that event.
+        except UnicodeError:
+            raise GitError(
+                "Invalid text encoding in blame output of {f}. "
+                "This may be caused by a mislabeled binary file.".format(
+                    f=self.versioned_file)
+                )
         except ValueError as ve:
             # Not having any output is actually OK if we have an empty file
             if 'no output' in str(ve).lower():

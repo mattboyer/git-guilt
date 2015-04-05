@@ -60,7 +60,7 @@ class DeltaTestCase(TestCase):
     def test_comparison(self):
         a = guilt_module.Delta('Alpha', 4, 0)
 
-        # a > b because a is guilt_moduleier than b
+        # a > b because a is guiltier than b
         b = guilt_module.Delta('Beta', 6, 0)
 
         # Test __lt__ and __le__
@@ -531,6 +531,14 @@ class TextBlameTests(TestCase):
     @patch('git_guilt.guilt.GitRunner.run_git')
     def test_blame_locs_exception(self, mock_run_git):
         mock_run_git.side_effect = guilt_module.GitError
+
+        blame = guilt_module.TextBlameTicket(self.runner, self.bucket, self.ver_file, Mock())
+
+        self.assertRaises(guilt_module.GitError, blame.process)
+
+    @patch('git_guilt.guilt.GitRunner.run_git')
+    def test_blame_locs_bad_encoding(self, mock_run_git):
+        mock_run_git.side_effect = UnicodeError
 
         blame = guilt_module.TextBlameTicket(self.runner, self.bucket, self.ver_file, Mock())
 
