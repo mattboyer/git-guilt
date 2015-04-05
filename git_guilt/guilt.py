@@ -191,26 +191,40 @@ class GitRunner(object):
         return paths
 
 
+class VersionedFile(object):
+
+    def __init__(self, path, revision):
+        self.repo_path = path
+        self.git_revision = revision
+
+    def __repr__(self):
+        return "<VersionedFile {rev}:{path}>".format(
+            rev=self.git_revision,
+            path=self.repo_path
+        )
+
+    def __eq__(self, rhs):
+        return (rhs.repo_path and rhs.repo_path) == self.repo_path and \
+            (rhs.git_revision and rhs.git_revision) == self.git_revision
+
+
 class BlameTicket(object):
     '''A queued blame. This is a TODO item, really'''
-    _author_regex = r'^[^(]*\((.*?) \d{4}-\d{2}-\d{2}'
+    _author_regex = re.compile(r'^[^(]*\((.*?) \d{4}-\d{2}-\d{2}')
 
-    def __init__(self, runner, bucket, path, rev, args):
-        self.name_regex = re.compile(self._author_regex)
+    def __init__(self, bucket, versioned_file, args):
 
-        self.runner = runner
         self.bucket = bucket
-        self.repo_path = path
+        self.versioned_file = versioned_file
         self.args = args
-        self.rev = rev
 
         self.config_pairs = dict()
         self.config_pairs['user.name'] = 'foo'
         self.config_pairs['user.email'] = 'bar@example.com'
 
     def __eq__(self, blame):
-        return (self.bucket == blame.bucket) \
-            and (self.repo_path == blame.repo_path) \
+        return (self.bucket is blame.bucket) \
+            and (self.versioned_file == blame.versioned_file) \
             and (self.bucket == blame.bucket)
 
     def _format_config(self):
@@ -223,11 +237,17 @@ class BlameTicket(object):
         return ' '.join(git_config_params)
 
     def blame_args(self):
-        blame_args = ['blame', '--encoding=utf-8', '--', self.repo_path]
+        blame_args = [
+            'blame',
+            '--encoding=utf-8',
+            '--',
+            self.versioned_file.repo_path
+        ]
+
         if self.args.email:
             blame_args.insert(1, '--show-email')
-        if self.rev:
-            blame_args.append(self.rev)
+        if self.versioned_file.git_revision:
+            blame_args.append(self.versioned_file.git_revision)
         return blame_args
 
     def blame_env(self):
@@ -239,13 +259,14 @@ class BlameTicket(object):
 
 
 class TextBlameTicket(BlameTicket):
-    def __init__(self, runner, bucket, path, rev, args):
-        super(TextBlameTicket, self).__init__(runner, bucket, path, rev, args)
+    def __init__(self, runner, bucket, versioned_file, args):
+        super(TextBlameTicket, self).__init__(bucket, versioned_file, args)
+        self.runner = runner
 
     def __repr__(self):
         return "<TextBlame {rev}:\"{path}\">".format(
-            rev=self.rev,
-            path=self.repo_path,
+            rev=self.versioned_file.git_revision,
+            path=self.versioned_file.repo_path,
         )
 
     def process(self):
@@ -263,27 +284,34 @@ class TextBlameTicket(BlameTicket):
                 return None
             else:
                 raise ge
+        # It may happen that a binary file isn't marked as such by Git.
+        # When that happens, we'll process any file content that appears in
+        # Git's output (eg. for git-blame) as if it were a text file but there
+        # is no guarantee that the file's bytes will be valid UTF8-encoded
+        # Unicode text.
+        # We should fail gracefully in that event.
+        except UnicodeError:
+            raise GitError(
+                "Invalid text encoding in blame output of {f}. "
+                "This may be caused by a mislabeled binary file.".format(
+                    f=self.versioned_file)
+                )
         except ValueError as ve:
             # Not having any output is actually OK if we have an empty file
             if 'no output' in str(ve).lower():
                 return
 
         for line in lines:
-            matches = self.name_regex.match(line)
+            matches = BlameTicket._author_regex.match(line)
             if matches:
                 line_author = matches.group(1).strip()
                 self.bucket[line_author] += 1
 
 
 class BinaryBlameTicket(BlameTicket):
-    def __init__(self, runner, bucket, path, rev, args):
-        super(BinaryBlameTicket, self).__init__(
-            runner,
-            bucket,
-            path,
-            rev,
-            args
-        )
+    def __init__(self, runner, bucket, versioned_file, args):
+        super(BinaryBlameTicket, self).__init__(bucket, versioned_file, args)
+        self.runner = runner
 
         binary_git_config_dict = dict()
         binary_git_config_dict['diff.binary_blame.textconv'] = 'xxd -p -c1'
@@ -294,8 +322,8 @@ class BinaryBlameTicket(BlameTicket):
 
     def __repr__(self):
         return "<BinaryBlame {rev}:\"{path}\">".format(
-            rev=self.rev,
-            path=self.repo_path,
+            rev=self.versioned_file.git_revision,
+            path=self.versioned_file.repo_path,
         )
 
     def process(self):
@@ -309,7 +337,7 @@ class BinaryBlameTicket(BlameTicket):
                 # We need to prepare the gitattributes file
                 temp_file.write(
                     ("{binary_path} diff=binary_blame".format(
-                        binary_path=self.repo_path
+                        binary_path=self.versioned_file.repo_path
                     ) + os.linesep).encode('utf_8')
                 )
                 temp_file.flush()
@@ -325,9 +353,13 @@ class BinaryBlameTicket(BlameTicket):
                     return None
                 else:
                     raise ge
+            except ValueError as ve:
+                # Not having any output is actually OK if we have an empty file
+                if 'no output' in str(ve).lower():
+                    return
 
         for line in lines:
-            matches = self.name_regex.match(line)
+            matches = BlameTicket._author_regex.match(line)
             if matches:
                 line_author = matches.group(1).strip()
                 self.bucket[line_author] += 1
@@ -340,8 +372,11 @@ class Formatter(object):
     _normal = _CSI + '0m'
     _default_width = 80
 
-    def __init__(self, deltas):
-        self.deltas = deltas
+    def __init__(self, *deltas):
+        self.all_deltas = []
+        for delta_list in deltas:
+            self.all_deltas.extend(delta_list)
+
         self._is_tty = os.isatty(sys.stdout.fileno())
         self._tty_width = self._get_tty_width()
 
@@ -366,19 +401,21 @@ class Formatter(object):
     @property
     def longest_name(self):
         return len(max(
-            self.deltas, key=lambda d: Formatter.term_width(d.author)
+            self.all_deltas, key=lambda d: Formatter.term_width(d.author)
         ).author)
 
     @property
     def longest_count(self):
         return len(str(max(
-            self.deltas, key=lambda d: len(str(d.count))
+            [d for d in self.all_deltas if not isinstance(d, BinaryDelta)],
+            key=lambda d: len(str(d.count))
         ).count))
 
     @property
     def longest_bargraph(self):
         return abs(max(
-            self.deltas, key=lambda d: abs(d.count)
+            [d for d in self.all_deltas if not isinstance(d, BinaryDelta)],
+            key=lambda d: abs(d.count)
         ).count)
 
     @property
@@ -420,8 +457,8 @@ class Formatter(object):
         else:
             return Formatter._default_width
 
-    def show_guilt_stats(self):
-        for delta in self.deltas:
+    def show_guilt_stats(self, deltas):
+        for delta in deltas:
             if delta.count:
                 Formatter.terminal_output(self.format(delta), sys.stdout)
 
@@ -477,7 +514,7 @@ class Formatter(object):
                 self.longest_name - Formatter.term_width(delta.author) +
                 len(delta.author)
             ),
-            count='Bin'.rjust(self.longest_count),
+            count='Bin',
             since=since_bytes,
             until=until_bytes,
         )
@@ -602,9 +639,6 @@ class PyGuilt(object):
             )
             raise SystemExit(1)
 
-        self.loc_formatter = Formatter(self.loc_deltas)
-        self.byte_formatter = Formatter(self.byte_deltas)
-
     def process_args(self):
         self.args = self.parser.parse_args()
         if not (self.args.since and self.args.until):
@@ -641,8 +675,7 @@ class PyGuilt(object):
                 TextBlameTicket(
                     self.runner,
                     self.loc_ownership_since,
-                    repo_path,
-                    self.args.since,
+                    VersionedFile(repo_path, self.args.since),
                     self.args
                 )
             )
@@ -651,8 +684,7 @@ class PyGuilt(object):
                 TextBlameTicket(
                     self.runner,
                     self.loc_ownership_until,
-                    repo_path,
-                    self.args.until,
+                    VersionedFile(repo_path, self.args.until),
                     self.args
                 )
             )
@@ -663,8 +695,7 @@ class PyGuilt(object):
                     BinaryBlameTicket(
                         self.runner,
                         self.byte_ownership_since,
-                        repo_path,
-                        self.args.since,
+                        VersionedFile(repo_path, self.args.since),
                         self.args
                     )
                 )
@@ -673,8 +704,7 @@ class PyGuilt(object):
                     BinaryBlameTicket(
                         self.runner,
                         self.byte_ownership_until,
-                        repo_path,
-                        self.args.until,
+                        VersionedFile(repo_path, self.args.until),
                         self.args
                     )
                 )
@@ -684,7 +714,8 @@ class PyGuilt(object):
         for blame in self.blame_jobs:
             # FIXME This should be moved to the job enqueueing routine -
             # there's no point having jobs we're not gonna process
-            if blame.repo_path in self.trees[blame.rev]:
+            if blame.versioned_file.repo_path in \
+                    self.trees[blame.versioned_file.git_revision]:
                 blame.process()
 
     def _reduce_since_text_blame(self, deltas, since_blame):
@@ -756,16 +787,14 @@ class PyGuilt(object):
             self.populate_trees()
             self.map_blames()
             self.reduce_blames()
-            self.loc_formatter.show_guilt_stats()
+
+            formatter = Formatter(self.loc_deltas, self.byte_deltas)
+            formatter.show_guilt_stats(self.loc_deltas)
             if self.byte_deltas:
                 if self.loc_deltas:
                     Formatter.terminal_output('---', sys.stdout)
-                self.byte_formatter.show_guilt_stats()
+                formatter.show_guilt_stats(self.byte_deltas)
             return 0
-
-
-def main():
-    sys.exit(PyGuilt().run())
 
 
 def setup_argparser():
@@ -805,6 +834,11 @@ revisions of a repository.
         'reported',
     )
     return parser
+
+
+def main():
+    sys.exit(PyGuilt().run())
+
 
 if '__main__' == __name__:
     main()

@@ -1,2 +1,3 @@
 -R
 --exclude=node_modules
+--exclude=build

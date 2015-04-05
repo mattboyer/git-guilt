@@ -60,7 +60,7 @@ class DeltaTestCase(TestCase):
     def test_comparison(self):
         a = guilt_module.Delta('Alpha', 4, 0)
 
-        # a > b because a is guilt_moduleier than b
+        # a > b because a is guiltier than b
         b = guilt_module.Delta('Beta', 6, 0)
 
         # Test __lt__ and __le__
@@ -107,6 +107,73 @@ class DeltaTestCase(TestCase):
         self.assertEquals("<Delta \"Beta\": -6 (16->10)>", repr(b))
         self.assertEquals("<Delta \"Gamma\": 0 (8->8)>", repr(c))
 
+class BinaryDeltaTestCase(TestCase):
+
+    def test_eq(self):
+        a = guilt_module.BinaryDelta('Alpha', 4, 0)
+        b = guilt_module.BinaryDelta('Beta', 6, 0)
+        self.assertFalse(a == b)
+        self.assertTrue(a != b)
+
+        b = guilt_module.BinaryDelta('Alpha', 6, 0)
+        self.assertFalse(a == b)
+        self.assertTrue(a != b)
+
+        b = guilt_module.BinaryDelta('Alpha', 4, 0)
+        self.assertTrue(a == b)
+        self.assertTrue(a <= b)
+        self.assertTrue(a >= b)
+        self.assertFalse(a != b)
+
+    def test_comparison(self):
+        a = guilt_module.BinaryDelta('Alpha', 4, 0)
+
+        # a > b because a is guilt_moduleier than b
+        b = guilt_module.BinaryDelta('Beta', 6, 0)
+
+        # Test __lt__ and __le__
+        self.assertTrue(a < b)
+        self.assertTrue(a <= b)
+        self.assertFalse(b < a)
+        self.assertFalse(b <= a)
+
+        # Test __gt__ and __ge__
+        self.assertFalse(a > b)
+        self.assertFalse(a >= b)
+        self.assertTrue(b > a)
+        self.assertTrue(b >= a)
+
+        # a and b are equally guilt_moduley, but a comes before b in a lexicographic
+        # sort
+        b = guilt_module.BinaryDelta('Beta', 4, 0)
+
+        # Test __lt__ and __le__
+        self.assertTrue(a < b)
+        self.assertTrue(a <= b)
+        self.assertFalse(b < a)
+        self.assertFalse(b <= a)
+
+        # Test __gt__ and __ge__
+        self.assertFalse(a > b)
+        self.assertFalse(a >= b)
+        self.assertTrue(b > a)
+        self.assertTrue(b >= a)
+
+        b = guilt_module.BinaryDelta('Aardvark', 4, 0)
+        self.assertFalse(a < b)
+        self.assertFalse(a <= b)
+
+        self.assertTrue(a > b)
+        self.assertTrue(a >= b)
+
+    def test_repr(self):
+        a = guilt_module.BinaryDelta('Alpha', 0, 4)
+        b = guilt_module.BinaryDelta('Beta', 16, 10)
+        c = guilt_module.BinaryDelta('Gamma', 8, 8)
+
+        self.assertEquals("<BinaryDelta \"Alpha\": 4 (0->4)>", repr(a))
+        self.assertEquals("<BinaryDelta \"Beta\": -6 (16->10)>", repr(b))
+        self.assertEquals("<BinaryDelta \"Gamma\": 0 (8->8)>", repr(c))
 
 class ArgTestCase(TestCase):
 
@@ -196,7 +263,48 @@ class GitRunnerTestCase(TestCase):
     def tearDown(self):
         pass
 
-    def test_version(self):
+    @patch('git_guilt.guilt.subprocess.Popen')
+    def test_version_retrieval(self, mock_process):
+        mock_process.return_value.communicate = Mock(
+            return_value=(b'git version 1.1.1', None)
+        )
+        mock_process.return_value.returncode = 0
+        mock_process.return_value.wait = \
+                Mock(return_value=None)
+
+        version_tuple = self.runner._get_git_version()
+
+        mock_process.assert_called_once_with(
+            ['nosuchgit', '--version'],
+            cwd='/my/arbitrary/path',
+            stderr=-1,
+            stdout=-1
+        )
+        mock_process.reset_mock()
+
+        self.assertEquals((1,1,1), version_tuple)
+
+        # Git gave us something that isn't a version string
+        mock_process.return_value.communicate = Mock(
+            return_value=(b'git fdsfyasdifoy', None)
+        )
+        self.assertRaises(
+            guilt_module.GitError,
+            self.runner._get_git_version
+        )
+        mock_process.reset_mock()
+
+        # Git gave us a malformed version
+        mock_process.return_value.communicate = Mock(
+            return_value=(b'git version X.Y.Z', None)
+        )
+        self.assertRaises(
+            guilt_module.GitError,
+            self.runner._get_git_version
+        )
+        mock_process.reset_mock()
+
+    def test_version_comparison(self):
         self.assertEquals((1, 0, 0), self.runner.version)
 
         self.runner.version = (1, 7, 1)
@@ -308,33 +416,6 @@ class GitRunnerTestCase(TestCase):
 
         self.assertRaises(ValueError, self.runner.get_delta_files, 'HEAD~1', 'HEAD')
 
-    @patch('git_guilt.guilt.GitRunner.run_git')
-    def test_blame_locs(self, mock_run_git):
-        mock_run_git.return_value = test.constants.blame_author_names.splitlines()
-
-        bucket = {'Foo Bar': 0, 'Tim Pettersen': 0}
-        blame = guilt_module.TextBlameTicket(self.runner, bucket, 'src/foo.c', 'HEAD', Mock())
-
-        blame.process()
-        self.assertEquals(
-            {'Foo Bar': 2, 'Tim Pettersen': 3},
-            blame.bucket
-        )
-
-    @patch('git_guilt.guilt.GitRunner.run_git')
-    def test_blame_locs_file_missing(self, mock_run_git):
-        mock_run_git.side_effect = guilt_module.GitError("'git blame arbitrary path failed with:\nfatal: no such path 'src/foo.c' in HEAD")
-
-        bucket = {'Foo Bar': 0, 'Tim Pettersen': 0}
-        blame = guilt_module.TextBlameTicket(self.runner, bucket, 'src/foo.c', 'HEAD', Mock())
-
-        self.assertEquals(None, blame.process())
-        # The bucket is unchanged
-        self.assertEquals(
-            {'Foo Bar': 0, 'Tim Pettersen': 0},
-            blame.bucket
-        )
-
     @patch('git_guilt.guilt.subprocess.Popen')
     def test_get_git_root_exception(self, mock_process):
         mock_process.return_value.communicate = Mock(side_effect=OSError)
@@ -353,12 +434,224 @@ class GitRunnerTestCase(TestCase):
 
         stderr_patch.stop()
 
+    @patch('git_guilt.guilt.subprocess.Popen')
+    def test_populate_rev_tree(self, mock_process):
+        ls_tree_output='''
+100644 blob f5231b962039460131a1bd380a3797a24c228801	foo.c
+160000 commit b6633ac3fc3177b8d293c2e6ab2f5e576ee70977	git_test_repo
+100644 blob 8c7bb63741d85724dd00d3732b636042456f3398	bar.h
+        '''.strip()
+
+        # The type returned by Popen.communicate() is version-specific
+        if 2 == sys.version_info[0]:
+            # Python2's str type is byte-based
+            git_output=ls_tree_output
+        elif 3 == sys.version_info[0]:
+            git_output=bytes(ls_tree_output, encoding='utf_8')
+
+        mock_process.return_value.returncode = 0
+        mock_process.return_value.communicate = \
+            Mock(
+                return_value=(git_output, None)
+            )
+
+        self.assertEquals(
+            set(['foo.c', 'bar.h']),
+            self.runner.populate_tree('HEAD')
+        )
+
+class TextBlameTests(TestCase):
+
+    def setUp(self):
+        initial_git_results = [
+                (b'git version 1.0.0\n', None),
+                (b'/my/arbitrary/path\n', None)
+            ]
+
+        def patched_popen(*args):
+            try:
+                output = initial_git_results.pop()
+            except IndexError:
+                output = (b'\n', None)
+            finally:
+                return output
+
+        # We need to mock up subprocess.Popen so that the 'git' invocation
+        # performed when the GitRunner object is instantiated doesn't result in
+        # an actual process being forked
+        self._popen_patch = patch('git_guilt.guilt.subprocess.Popen')
+        self.mocked_popen = self._popen_patch.start()
+        self.mocked_popen.return_value = Mock(
+            communicate=Mock(side_effect=patched_popen),
+            returncode=0,
+        )
+
+        self.runner = guilt_module.GitRunner()
+        self._popen_patch.stop()
+
+        self.bucket = {'Foo Bar': 0, 'Tim Pettersen': 0}
+        self.ver_file = guilt_module.VersionedFile('src/foo.c', 'HEAD')
+
+    def tearDown(self):
+        pass
+
+    def test_text_blame_repr(self):
+        bucket = {'Foo Bar': 0, 'Tim Pettersen': 0}
+        blame = guilt_module.TextBlameTicket(self.runner, bucket, self.ver_file, Mock())
+        self.assertEquals(
+            '<TextBlame HEAD:"src/foo.c">',
+            repr(blame)
+        )
+
+    @patch('git_guilt.guilt.GitRunner.run_git')
+    def test_blame_locs(self, mock_run_git):
+        mock_run_git.return_value = test.constants.blame_author_names.splitlines()
+
+        blame = guilt_module.TextBlameTicket(self.runner, self.bucket, self.ver_file, Mock())
+
+        blame.process()
+        self.assertEquals(
+            {'Foo Bar': 2, 'Tim Pettersen': 3},
+            blame.bucket
+        )
+
+    @patch('git_guilt.guilt.GitRunner.run_git')
+    def test_blame_locs_file_missing(self, mock_run_git):
+        mock_run_git.side_effect = guilt_module.GitError("'git blame arbitrary path failed with:\nfatal: no such path 'src/foo.c' in HEAD")
+
+        blame = guilt_module.TextBlameTicket(self.runner, self.bucket, self.ver_file, Mock())
+
+        self.assertEquals(None, blame.process())
+        # The bucket is unchanged
+        self.assertEquals(
+            {'Foo Bar': 0, 'Tim Pettersen': 0},
+            blame.bucket
+        )
+
+    @patch('git_guilt.guilt.GitRunner.run_git')
+    def test_blame_locs_exception(self, mock_run_git):
+        mock_run_git.side_effect = guilt_module.GitError
+
+        blame = guilt_module.TextBlameTicket(self.runner, self.bucket, self.ver_file, Mock())
+
+        self.assertRaises(guilt_module.GitError, blame.process)
+
+    @patch('git_guilt.guilt.GitRunner.run_git')
+    def test_blame_locs_bad_encoding(self, mock_run_git):
+        mock_run_git.side_effect = UnicodeError
+
+        blame = guilt_module.TextBlameTicket(self.runner, self.bucket, self.ver_file, Mock())
+
+        self.assertRaises(guilt_module.GitError, blame.process)
+
+    @patch('git_guilt.guilt.GitRunner.run_git')
+    def test_blame_locs_empty_file(self, mock_run_git):
+        mock_run_git.side_effect = ValueError('No output')
+
+        blame = guilt_module.TextBlameTicket(self.runner, self.bucket, self.ver_file, Mock())
+        self.assertEquals(None, blame.process())
+
+        # The bucket is unchanged
+        self.assertEquals(
+            {'Foo Bar': 0, 'Tim Pettersen': 0},
+            blame.bucket
+        )
+
+
+class BinaryBlameTests(TestCase):
+
+    def setUp(self):
+        initial_git_results = [
+                (b'git version 1.0.0\n', None),
+                (b'/my/arbitrary/path\n', None)
+            ]
+
+        def patched_popen(*args):
+            try:
+                output = initial_git_results.pop()
+            except IndexError:
+                output = (b'\n', None)
+            finally:
+                return output
+
+        # We need to mock up subprocess.Popen so that the 'git' invocation
+        # performed when the GitRunner object is instantiated doesn't result in
+        # an actual process being forked
+        self._popen_patch = patch('git_guilt.guilt.subprocess.Popen')
+        self.mocked_popen = self._popen_patch.start()
+        self.mocked_popen.return_value = Mock(
+            communicate=Mock(side_effect=patched_popen),
+            returncode=0,
+        )
+
+        self.runner = guilt_module.GitRunner()
+        self.bucket = {'Foo Bar': 0, 'Tim Pettersen': 0}
+        self.ver_file = guilt_module.VersionedFile('bin/a.out', 'HEAD')
+        self._popen_patch.stop()
+
+    def tearDown(self):
+        pass
+
+    def test_bin_blame_repr(self):
+        bucket = {'Foo Bar': 0, 'Tim Pettersen': 0}
+        blame = guilt_module.BinaryBlameTicket(self.runner, bucket, self.ver_file, Mock())
+        self.assertEquals(
+            '<BinaryBlame HEAD:"bin/a.out">',
+            repr(blame)
+        )
+
+    @patch('git_guilt.guilt.GitRunner.run_git')
+    def test_blame_bytes(self, mock_run_git):
+        mock_run_git.return_value = test.constants.blame_author_names.splitlines()
+
+        blame = guilt_module.BinaryBlameTicket(self.runner, self.bucket, self.ver_file, Mock())
+
+        blame.process()
+        self.assertEquals(
+            {'Foo Bar': 2, 'Tim Pettersen': 3},
+            blame.bucket
+        )
+
+    @patch('git_guilt.guilt.GitRunner.run_git')
+    def test_blame_bytes_file_missing(self, mock_run_git):
+        mock_run_git.side_effect = guilt_module.GitError("'git blame arbitrary path failed with:\nfatal: no such path 'src/foo.c' in HEAD")
+
+        blame = guilt_module.BinaryBlameTicket(self.runner, self.bucket, self.ver_file, Mock())
+
+        self.assertEquals(None, blame.process())
+        # The bucket is unchanged
+        self.assertEquals(
+            {'Foo Bar': 0, 'Tim Pettersen': 0},
+            blame.bucket
+        )
+
+    @patch('git_guilt.guilt.GitRunner.run_git')
+    def test_blame_bytes_locs_exception(self, mock_run_git):
+        mock_run_git.side_effect = guilt_module.GitError
+
+        blame = guilt_module.BinaryBlameTicket(self.runner, self.bucket, self.ver_file, Mock())
+
+        self.assertRaises(guilt_module.GitError, blame.process)
+
+    @patch('git_guilt.guilt.GitRunner.run_git')
+    def test_blame_bytes_empty_file(self, mock_run_git):
+        mock_run_git.side_effect = ValueError('No output')
+
+        blame = guilt_module.BinaryBlameTicket(self.runner, self.bucket, self.ver_file, Mock())
+        self.assertEquals(None, blame.process())
+
+        # The bucket is unchanged
+        self.assertEquals(
+            {'Foo Bar': 0, 'Tim Pettersen': 0},
+            blame.bucket
+        )
+
 
 class GuiltTestCase(TestCase):
 
     def setUp(self):
         initial_git_results = [
-                (b'git version 1.0.0\n', None),
+                (b'git version 1.8.7\n', None),
                 (b'/my/arbitrary/path\n', None)
             ]
 
@@ -397,7 +690,6 @@ class GuiltTestCase(TestCase):
         self._stdout_patch.stop()
         self._isatty_patch.stop()
 
-
     @patch('git_guilt.guilt.GitRunner.run_git')
     def test_populate_trees(self, mock_run_git):
         self.guilt.args = Mock(since='HEAD~4', until='HEAD~1')
@@ -411,29 +703,6 @@ class GuiltTestCase(TestCase):
             ],
             mock_run_git.mock_calls
         )
-
-    @patch('git_guilt.guilt.GitRunner.get_delta_files')
-    def test_map_blames(self, mock_get_delta):
-        # We need to mock out the runner
-        mock_runner = Mock()
-
-        mock_get_delta.return_value = set(['foo.c', 'foo.h']), set([])
-        self.guilt.args = Mock(since='HEAD~4', until='HEAD~1')
-
-        self.guilt.trees['HEAD~4'] = ['foo.c', 'foo.h']
-        self.guilt.trees['HEAD~1'] = ['foo.c', 'foo.h']
-
-        self.guilt.map_blames()
-        self.assertEquals(4, len(self.guilt.blame_jobs))
-        self.assertEquals(
-                [
-                    guilt_module.TextBlameTicket(mock_runner, self.guilt.loc_ownership_since, 'foo.c', 'HEAD~4', Mock()),
-                    guilt_module.TextBlameTicket(mock_runner, self.guilt.loc_ownership_until, 'foo.c', 'HEAD~1', Mock()),
-                    guilt_module.TextBlameTicket(mock_runner, self.guilt.loc_ownership_since, 'foo.h', 'HEAD~4', Mock()),
-                    guilt_module.TextBlameTicket(mock_runner, self.guilt.loc_ownership_until, 'foo.h', 'HEAD~1', Mock()),
-                ],
-                self.guilt.blame_jobs
-            )
 
     def test_reduce_locs(self):
         self.guilt.loc_ownership_since = {'Alice': 5, 'Bob': 3, 'Carol': 4}
@@ -467,20 +736,20 @@ class GuiltTestCase(TestCase):
         self.guilt.trees['until'] = ['in_since_and_until', 'not_in_since']
 
         def mock_blame_logic(blame):
-            if 'not_in_since' == blame.repo_path:
-                if 'since' == blame.rev:
+            if 'not_in_since' == blame.versioned_file.repo_path:
+                if 'since' == blame.versioned_file.git_revision:
                     blame.exists = False
-                elif 'until' == blame.rev:
+                elif 'until' == blame.versioned_file.git_revision:
                     blame.exists = True
                     blame.bucket['Alice'] += 20
                     blame.bucket['Bob'] += 5
-            elif 'in_since_and_until' == blame.repo_path:
+            elif 'in_since_and_until' == blame.versioned_file.repo_path:
                 blame.exists = True
-                if 'since' == blame.rev:
+                if 'since' == blame.versioned_file.git_revision:
                     blame.bucket['Alice'] += 12
                     blame.bucket['Bob'] += 8
                     blame.bucket['Dave'] += 4
-                elif 'until' == blame.rev:
+                elif 'until' == blame.versioned_file.git_revision:
                     blame.exists = True
                     blame.bucket['Alice'] += 18
                     blame.bucket['Bob'] += 2
@@ -527,23 +796,29 @@ class GuiltTestCase(TestCase):
         self.guilt.trees['since'] = ['in_since_and_until', 'not_in_until']
         self.guilt.trees['until'] = ['in_since_and_until']
 
+    @patch('git_guilt.guilt.GitRunner.get_delta_files')
+    def test_map_text_blames(self, mock_get_delta):
+
+        mock_get_delta.return_value = set(['foo.c', 'foo.h']), set([])
+
+        self.guilt.args = Mock(since='HEAD~4', until='HEAD~1')
+        self.guilt.trees['HEAD~4'] = ['foo.c', 'foo.h']
+        self.guilt.trees['HEAD~1'] = ['foo.c', 'foo.h']
+
+
         def mock_blame_logic(blame):
-            if 'not_in_until' == blame.repo_path:
-                if 'since' == blame.rev:
-                    blame.exists = True
+            if 'foo.c' == blame.versioned_file.repo_path:
+                if 'HEAD~4' == blame.versioned_file.git_revision:
                     blame.bucket['Alice'] += 20
                     blame.bucket['Bob'] += 5
-                elif 'until' == blame.rev:
-                    blame.exists = False
-
-            elif 'in_since_and_until' == blame.repo_path:
-                blame.exists = True
-                if 'since' == blame.rev:
-                    blame.bucket['Alice'] += 12
-                elif 'until' == blame.rev:
-                    blame.exists = True
-                    blame.bucket['Alice'] += 18
+                elif 'HEAD~1' == blame.versioned_file.git_revision:
                     blame.bucket['Carol'] += 2
+
+            elif 'foo.h' == blame.versioned_file.repo_path:
+                if 'HEAD~4' == blame.versioned_file.git_revision:
+                    blame.bucket['Alice'] += 12
+                elif 'HEAD~1' == blame.versioned_file.git_revision:
+                    blame.bucket['Alice'] += 18
 
         # FIXME This monkey patching is ugly and should be handled through Mock
         old_process = guilt_module.TextBlameTicket.process
@@ -551,8 +826,24 @@ class GuiltTestCase(TestCase):
             guilt_module.TextBlameTicket.process = mock_blame_logic
 
             self.guilt.map_blames()
+
+            # Assert the set of blame "jobs" generated by PyGuilt.map_blames()
+            self.assertEquals(4, len(self.guilt.blame_jobs))
+            self.assertEquals(
+                [
+                    guilt_module.TextBlameTicket(self.guilt.runner, self.guilt.loc_ownership_since, guilt_module.VersionedFile('foo.c', 'HEAD~4'), Mock()),
+                    guilt_module.TextBlameTicket(self.guilt.runner, self.guilt.loc_ownership_until, guilt_module.VersionedFile('foo.c', 'HEAD~1'), Mock()),
+                    guilt_module.TextBlameTicket(self.guilt.runner, self.guilt.loc_ownership_since, guilt_module.VersionedFile('foo.h', 'HEAD~4'), Mock()),
+                    guilt_module.TextBlameTicket(self.guilt.runner, self.guilt.loc_ownership_until, guilt_module.VersionedFile('foo.h', 'HEAD~1'), Mock()),
+                ],
+                self.guilt.blame_jobs
+            )
+
+            # Assert the ownership buckets
             self.assertEquals({'Alice': 32, 'Bob': 5}, self.guilt.loc_ownership_since)
             self.assertEquals({'Alice': 18, 'Carol': 2}, self.guilt.loc_ownership_until)
+            self.assertEquals({}, self.guilt.byte_ownership_since)
+            self.assertEquals({}, self.guilt.byte_ownership_until)
 
             self.guilt.reduce_blames()
 
@@ -566,10 +857,79 @@ class GuiltTestCase(TestCase):
                     guilt_module.Delta('Carol', 0, 2)
                 ]
             expected_guilt.sort()
-
             self.assertEquals(expected_guilt, self.guilt.loc_deltas)
+            self.assertEquals([], self.guilt.byte_deltas)
+
         finally:
             guilt_module.TextBlameTicket.process = old_process
+
+    @patch('git_guilt.guilt.GitRunner.get_delta_files')
+    def test_map_binary_blames(self, mock_get_delta):
+
+        mock_get_delta.return_value = set([]), set(['foo.bin', 'libbar.so.1.8.7'])
+
+        self.guilt.args = Mock(since='HEAD~4', until='HEAD~1')
+        self.guilt.trees['HEAD~4'] = ['foo.bin', 'libbar.so.1.8.7']
+        self.guilt.trees['HEAD~1'] = ['foo.bin', 'libbar.so.1.8.7']
+
+
+        def mock_blame_logic(blame):
+            if 'foo.bin' == blame.versioned_file.repo_path:
+                if 'HEAD~4' == blame.versioned_file.git_revision:
+                    blame.bucket['Alice'] += 20
+                    blame.bucket['Bob'] += 5
+                elif 'HEAD~1' == blame.versioned_file.git_revision:
+                    blame.bucket['Carol'] += 2
+
+            elif 'libbar.so.1.8.7' == blame.versioned_file.repo_path:
+                if 'HEAD~4' == blame.versioned_file.git_revision:
+                    blame.bucket['Alice'] += 12
+                elif 'HEAD~1' == blame.versioned_file.git_revision:
+                    blame.bucket['Alice'] += 18
+
+        # FIXME This monkey patching is ugly and should be handled through Mock
+        old_process = guilt_module.BinaryBlameTicket.process
+        try:
+            guilt_module.BinaryBlameTicket.process = mock_blame_logic
+
+            self.guilt.map_blames()
+
+            # Assert the set of blame "jobs" generated by PyGuilt.map_blames()
+            self.assertEquals(4, len(self.guilt.blame_jobs))
+            self.assertEquals(
+                [
+                    guilt_module.BinaryBlameTicket(self.guilt.runner, self.guilt.byte_ownership_since, guilt_module.VersionedFile('foo.bin', 'HEAD~4'), Mock()),
+                    guilt_module.BinaryBlameTicket(self.guilt.runner, self.guilt.byte_ownership_until, guilt_module.VersionedFile('foo.bin', 'HEAD~1'), Mock()),
+                    guilt_module.BinaryBlameTicket(self.guilt.runner, self.guilt.byte_ownership_since, guilt_module.VersionedFile('libbar.so.1.8.7', 'HEAD~4'), Mock()),
+                    guilt_module.BinaryBlameTicket(self.guilt.runner, self.guilt.byte_ownership_until, guilt_module.VersionedFile('libbar.so.1.8.7', 'HEAD~1'), Mock()),
+                ],
+                self.guilt.blame_jobs
+            )
+
+            # Assert the ownership buckets
+            self.assertEquals({}, self.guilt.loc_ownership_since)
+            self.assertEquals({}, self.guilt.loc_ownership_until)
+            self.assertEquals({'Alice': 32, 'Bob': 5}, self.guilt.byte_ownership_since)
+            self.assertEquals({'Alice': 18, 'Carol': 2}, self.guilt.byte_ownership_until)
+
+            self.guilt.reduce_blames()
+
+            # Alice's share of the collective guilt has decreased from 32 to 18
+            # bytes
+            # Bob's share of the collective guilt has been wiped clean!
+            # Carol's share has increased from nothing to 2
+            expected_guilt = [
+                    guilt_module.Delta('Alice', 32, 18),
+                    guilt_module.Delta('Bob', 5, 0),
+                    guilt_module.Delta('Carol', 0, 2)
+                ]
+            expected_guilt.sort()
+            self.assertEquals(expected_guilt, self.guilt.byte_deltas)
+            self.assertEquals([], self.guilt.loc_deltas)
+
+        finally:
+            guilt_module.BinaryBlameTicket.process = old_process
+
 
     # Many more testcases are required!!
     @patch('git_guilt.guilt.PyGuilt.populate_trees')
@@ -577,16 +937,43 @@ class GuiltTestCase(TestCase):
     @patch('git_guilt.guilt.PyGuilt.reduce_blames')
     @patch('git_guilt.guilt.PyGuilt.map_blames')
     @patch('git_guilt.guilt.PyGuilt.process_args')
-    @patch('sys.stdout', new_callable=io.BytesIO)
-    def test_show_run(self, mock_stdout, mock_process_args, mock_map, mock_reduce, mock_show, mock_pop_trees):
+    def test_show_run(self, mock_process_args, mock_map, mock_reduce, mock_show, mock_pop_trees):
+
+        if 2 == sys.version_info[0]:
+            stdout_patch = patch('sys.stdout', new_callable=io.BytesIO)
+        elif 3 == sys.version_info[0]:
+            stdout_patch = patch('sys.stdout', new_callable=io.StringIO)
+        mock_stdout = stdout_patch.start()
+
+        def set_byte_deltas():
+            self.guilt.loc_deltas=[guilt_module.Delta('foo', 45, 25)]
+            self.guilt.byte_deltas=[guilt_module.BinaryDelta('bar', 5, 78)]
+
+        mock_reduce.side_effect = set_byte_deltas
+
+        # Mock stdout.fileno()
+        self._stdout_patch = patch('git_guilt.guilt.sys.stdout')
+        self.mocked_stdout = self._stdout_patch.start()
+        self.mocked_stdout.return_value = Mock(
+            fileno=Mock(return_value=1),
+        )
+
+        # Mock os.isatty
+        _isatty_patch = patch('git_guilt.guilt.os.isatty')
+        mocked_isatty = _isatty_patch.start()
+        mocked_isatty.return_value = False
 
         self.assertEquals(0, self.guilt.run())
+        #
+        _isatty_patch.stop()
+        stdout_patch.stop()
+
+        # Assert calls
         mock_process_args.assert_called_once_with()
         mock_pop_trees.assert_called_once_with()
         mock_map.assert_called_once_with()
         mock_reduce.assert_called_once_with()
-
-        self.assertEquals(1, len(mock_show.mock_calls))
+        self.assertEquals(2, len(mock_show.mock_calls))
 
 
 class FormatterTestCase(TestCase):
@@ -604,13 +991,35 @@ class FormatterTestCase(TestCase):
         self.mocked_isatty = self._isatty_patch.start()
         self.mocked_isatty.return_value = False
 
-        self.formatter = guilt_module.Formatter([])
+        self.bin_delta_list = [
+            guilt_module.BinaryDelta(u'short', 30, 45),
+            guilt_module.BinaryDelta(u'Very Long Name', 10, 7)
+        ]
+        self.text_delta_list = [
+            guilt_module.Delta(u'short', 30, 45),
+            guilt_module.Delta(u'Very Long Name', 10, 7)
+        ]
+        self.formatter = guilt_module.Formatter(self.bin_delta_list, self.text_delta_list)
 
     def tearDown(self):
         self._isatty_patch.stop()
 
     def test_get_width_not_tty(self):
         self.assertEquals(80, self.formatter._get_tty_width())
+
+    def test_red(self):
+        self.formatter._is_tty = True
+        self.assertEquals('\033[31mRED\033[0m', self.formatter.red('RED'))
+
+        self.formatter._is_tty = False
+        self.assertEquals('RED', self.formatter.red('RED'))
+
+    def test_green(self):
+        self.formatter._is_tty = True
+        self.assertEquals('\033[32mGREEN\033[0m', self.formatter.green('GREEN'))
+
+        self.formatter._is_tty = False
+        self.assertEquals('GREEN', self.formatter.green('GREEN'))
 
     @patch('git_guilt.guilt.fcntl.ioctl')
     def test_get_width_tty(self, mocked_ioctl):
@@ -637,7 +1046,7 @@ class FormatterTestCase(TestCase):
         self.assertEquals(80, self.formatter._get_tty_width())
         del self.formatter
 
-    def test_show_guilt(self):
+    def test_show_text_guilt(self):
         if 2 == sys.version_info[0]:
             stdout_patch = patch('sys.stdout', new_callable=io.BytesIO)
         elif 3 == sys.version_info[0]:
@@ -645,13 +1054,25 @@ class FormatterTestCase(TestCase):
 
         mock_stdout = stdout_patch.start()
 
-
-        self.formatter.deltas.append(guilt_module.Delta(u'short', 30, 45))
-        self.formatter.deltas.append(guilt_module.Delta(u'Very Long Name', 10, 7))
-
-        self.formatter.show_guilt_stats()
+        self.formatter.show_guilt_stats(self.text_delta_list)
         self.assertEquals(''' short          | 15 +++++++++++++++
  Very Long Name | -3 ---
+''',
+            mock_stdout.getvalue()
+        )
+        stdout_patch.stop()
+
+    def test_show_binary_guilt(self):
+        if 2 == sys.version_info[0]:
+            stdout_patch = patch('sys.stdout', new_callable=io.BytesIO)
+        elif 3 == sys.version_info[0]:
+            stdout_patch = patch('sys.stdout', new_callable=io.StringIO)
+
+        mock_stdout = stdout_patch.start()
+
+        self.formatter.show_guilt_stats(self.bin_delta_list)
+        self.assertEquals(''' short          | Bin 30 -> 45 bytes
+ Very Long Name | Bin 10 -> 7 bytes
 ''',
             mock_stdout.getvalue()
         )
