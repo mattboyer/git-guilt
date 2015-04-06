@@ -5,4 +5,4 @@ nose
 pep8
 setuptools
 Sphinx
-sphinx-argparse
+sphinx-argparse>=0.1.15
