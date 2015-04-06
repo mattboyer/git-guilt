@@ -12,6 +12,10 @@
     :target: https://pypi.python.org/pypi/git-guilt/
     :alt: Latest Version
 
+.. image:: https://pypip.in/format/git-guilt/badge.svg
+    :target: https://pypi.python.org/pypi/git-guilt/
+    :alt: Download format
+
 .. image:: https://pypip.in/py_versions/git-guilt/badge.svg
     :target: https://pypi.python.org/pypi/git-guilt/
     :alt: Supported Python versions
@@ -31,7 +35,7 @@ Screenshot
 Installation
 ------------
 
-To install, simply type:
+``git-guilt`` does not require any dependency beside Python and Git (and `argparse <https://pypi.python.org/pypi/argparse>`_ in case your version of Python doesn't include it). To install, simply type:
 
 .. code-block:: bash
 

@@ -6,4 +6,4 @@ pep8
 pylint
 setuptools
 Sphinx
-sphinx-argparse
+sphinx-argparse>=0.1.15

@@ -810,6 +810,9 @@ git-guilt is a custom tool written for git(1). It provides
 information regarding the transfer of ownership between two
 revisions of a repository.
         '''.strip(),
+        epilog='''
+Please note that git-guilt needs git >= 1.7.2 in order to process binary files.
+        '''.strip()
     )
     parser.add_argument(
         '-e', '--email',
