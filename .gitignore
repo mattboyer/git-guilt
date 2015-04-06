@@ -1,5 +1,6 @@
 git_guilt.egg-info/
 docs/man/
+docs/html/
 docs/doctrees/
 .coverage
 *.pyc
