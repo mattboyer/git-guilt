@@ -87,6 +87,9 @@ optional arguments:
   -h, --help   show this help message and exit
   -e, --email  Causes git-guilt to report transfers of ownership using
                authors' email addresses instead of their names
+
+Please note that git-guilt needs git >= 1.7.2 in order to process binary
+files.
 '''
 
         self.assertEquals(self.prepare_expected_string(expected_stdout), o)
