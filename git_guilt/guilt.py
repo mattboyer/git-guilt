@@ -642,7 +642,7 @@ class PyGuilt(object):
     def process_args(self):
         self.args = self.parser.parse_args()
         if not (self.args.since and self.args.until):
-            raise GitError('Invalid arguments')
+            raise GitError(self.parser.format_usage())
 
     def populate_trees(self):
         '''
