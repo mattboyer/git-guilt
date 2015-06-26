@@ -63,12 +63,7 @@ class GitRunner(object):
         self.version = self._get_git_version()
 
     def git_supports_binary_diff(self):
-        for min_supported, cur in zip(GitRunner._min_binary_ver, self.version):
-            if cur > min_supported:
-                return True
-            elif cur < min_supported:
-                return False
-        return True
+        return GitRunner._min_binary_ver <= self.version
 
     def _get_git_version(self):
         def version_string_to_tuple(ver_string):
