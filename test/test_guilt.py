@@ -306,6 +306,27 @@ class GitRunnerTestCase(TestCase):
         )
         mock_process.reset_mock()
 
+    @patch('git_guilt.guilt.subprocess.Popen')
+    def test_mac_version(self, mock_process):
+        mock_process.return_value.communicate = Mock(
+            return_value=(b'git version 2.3.2 (Apple Git-55)', None)
+        )
+        mock_process.return_value.returncode = 0
+        mock_process.return_value.wait = \
+                Mock(return_value=None)
+
+        version_tuple = self.runner._get_git_version()
+
+        mock_process.assert_called_once_with(
+            ['nosuchgit', '--version'],
+            cwd='/my/arbitrary/path',
+            stderr=-1,
+            stdout=-1
+        )
+        mock_process.reset_mock()
+
+        self.assertEquals((2,3,2), version_tuple)
+
     def test_version_comparison(self):
         self.assertEquals((1, 0, 0), self.runner.version)
 
