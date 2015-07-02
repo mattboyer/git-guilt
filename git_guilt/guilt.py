@@ -78,13 +78,14 @@ class GitRunner(object):
                 raise GitError("Malformed Git version")
 
         raw_version = self.run_git(GitRunner._version_args)
-        if not (raw_version and
-                1 == len(raw_version) and
-                raw_version[0].startswith('git version')
-                ):
-            raise GitError("Couldn't determine Git version %s" % raw_version)
+        version_re = re.compile(r'^git version (\d+.\d+.\d+)')
 
-        return version_string_to_tuple(raw_version[0].split()[-1])
+        if raw_version and 1 == len(raw_version):
+            match = version_re.match(raw_version[0])
+            if match:
+                return version_string_to_tuple(match.group(1))
+
+        raise GitError("Couldn't determine Git version %s" % raw_version)
 
     def _get_git_root(self):
         # We should probably go beyond just finding the root dir for the Git
