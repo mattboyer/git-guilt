@@ -12,12 +12,12 @@
     :target: https://pypi.python.org/pypi/git-guilt/
     :alt: Latest Version
 
-.. image:: https://pypip.in/format/git-guilt/badge.svg
-    :target: https://img.shields.io/pypi/format/git-guilt.svg
+.. image:: https://img.shields.io/pypi/format/git-guilt.svg
+    :target: https://pypi.python.org/pypi/git-guilt/
     :alt: Download format
 
-.. image:: https://pypip.in/py_versions/git-guilt/badge.svg
-    :target: https://img.shields.io/pypi/pyversions/git-guilt.svg
+.. image:: https://img.shields.io/pypi/pyversions/git-guilt.svg
+    :target: https://pypi.python.org/pypi/git-guilt/
     :alt: Supported Python versions
 
 git-guilt
