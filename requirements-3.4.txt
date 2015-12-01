@@ -1,9 +1,1 @@
-coverage
-coveralls
-mock
-nose
-pep8
-pylint
-setuptools
-Sphinx
-sphinx-argparse>=0.1.15
+requirements-pylint.txt
