@@ -24,7 +24,7 @@ setup(
     name='git-guilt',
     version=version.get_git_version(),
     url='https://github.com/mattboyer/git-guilt',
-    description='git-guilt provides information on the transfer of '\
+    description='git-guilt provides information on the transfer of '
         'ownership in a Git repository',
     author='Matt Boyer',
     author_email='mboyer@sdf.org',
@@ -44,7 +44,7 @@ setup(
     keywords='git blame guilt',
     packages=['git_guilt'],
     include_package_data=True,
-    data_files = [('man/man1', ['docs/man/git-guilt.1'])],
+    data_files=[('man/man1', ['docs/man/git-guilt.1'])],
     install_requires=['argparse'],
     entry_points={
         'console_scripts': [
