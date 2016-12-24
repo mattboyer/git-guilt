@@ -39,7 +39,7 @@ Installation
 
 .. code-block:: bash
 
-    pip install git-guilt
+    $ pip install git-guilt
 
 Why use git-guilt?
 ------------------
@@ -60,8 +60,8 @@ Once you've `cloned <https://help.github.com/articles/cloning-a-repository/>`_ t
 
 .. code-block:: bash
 
-    pip install -r requirements.txt
-    tox
+    $ pip install -r requirements.txt
+    $ tox
 
 Notes
 -----
@@ -73,4 +73,4 @@ Unit tests and integration tests are run for every commit. ``git-guilt`` is `tes
 To-Dos
 ------
 
-``git-guilt`` has only been tested on Linux so far. I expect some work to be needed to port terminal handling code to MacOS X. Support for Microsoft Windows would likely require more work.
+``git-guilt`` has only been tested on Linux so far. I expect some work to be needed to port terminal handling code to macOS. Support for Microsoft Windows would likely require more work.
