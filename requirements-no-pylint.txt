@@ -1,8 +1,0 @@
-coverage
-coveralls
-mock
-nose
-pep8
-setuptools
-Sphinx
-sphinx-argparse>=0.1.15

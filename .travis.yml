@@ -3,27 +3,13 @@ sudo: false
 
 python:
         - "3.5"
-        - "3.4"
-        - "3.3"
-        - "2.7"
-        - "2.6"
 
-before_install:
-        - "pip install -r requirements-${TRAVIS_PYTHON_VERSION}.txt"
+before_script:
         - pip freeze
 
-install:
-        - python setup.py bdist_wheel
-        - "[[ ${TRAVIS_PYTHON_VERSION} != 2.6 ]] || pip uninstall -y argparse"
-        - pip install dist/git_guilt-*.whl
-
 script:
-        - pep8 git_guilt
-        - "[[ ${TRAVIS_PYTHON_VERSION} == 2.6 ]] || pylint git_guilt"
-        - nosetests test/test_guilt.py --with-coverage --cover-package=git_guilt
-        - nosetests test/test_integration.py
+        - tox -v
 
 after_success:
         - cd ${TRAVIS_BUILD_DIR}
         - coveralls
-        - git guilt HEAD~1 HEAD

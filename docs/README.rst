@@ -39,13 +39,7 @@ Installation
 
 .. code-block:: bash
 
-    pip install git-guilt
-
-You can also `clone <https://help.github.com/articles/cloning-a-repository/>`_ this repository and run the following from your working copy:
-
-.. code-block:: bash
-
-    python setup.py install
+    $ pip install git-guilt
 
 Why use git-guilt?
 ------------------
@@ -59,14 +53,24 @@ Documentation and usage
 
 Please `read the docs <http://git-guilt.readthedocs.org/en/latest/git-guilt.1.html>`_.
 
+Hacking git-guilt
+-----------------
+
+Once you've `cloned <https://help.github.com/articles/cloning-a-repository/>`_ this repository, be sure to install the build-time dependencies and you'll be ready to starting hacking away on your working copy. Please use `tox <https://tox.readthedocs.io/en/latest/>`_ as your one-stop shop to ensure that all code checks and tests pass on both Python 2 and Python 3  - it's what the continuous integration hook requires for pull requests.
+
+.. code-block:: bash
+
+    $ pip install -r requirements.txt
+    $ tox
+
 Notes
 -----
 
-Unit tests and integration tests are run for every commit. ``git-guilt`` is `tested <https://travis-ci.org/mattboyer/git-guilt>`_ on Python 2.6, 2.7, 3.3 and 3.4.
+Unit tests and integration tests are run for every commit. ``git-guilt`` is `tested <https://travis-ci.org/mattboyer/git-guilt>`_ on Python 2.7, and 3.5.
 
 ``git-guilt`` tries to be Unicode-friendly. There are tests for non-Latin character support in author names, repository paths and terminal output.
 
 To-Dos
 ------
 
-``git-guilt`` has only been tested on Linux so far. I expect some work to be needed to port terminal handling code to MacOS X. Support for Microsoft Windows would likely require more work.
+``git-guilt`` has only been tested on Linux so far. I expect some work to be needed to port terminal handling code to macOS. Support for Microsoft Windows would likely require more work.
