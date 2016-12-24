@@ -1,22 +1,40 @@
+import os
 from setuptools import setup
-# Do we even need the distutils command?
-# from distutils.command.build import build as DistUtilsBuild
-# Setuptools is installed in the Tox venv and therefore PyLint has no problem
-# with it!
-from setuptools.command.install import install as SetupToolsBuild
+from setuptools.command.build_py import build_py as SetupToolsBdistPyCmd
+from setuptools.command.sdist import sdist as SetupToolsSdistCmd
 import version
 
 
-class SphinxInstall(SetupToolsBuild):
+class SphinxThenSetuptoolsBdistPyCmd(SetupToolsBdistPyCmd):
+    '''
+    Ensures that building a "binary distribution" (egg, wheel, etc.) triggers
+    the creation of the dynamic Sphinx-generated man page which is referenced
+    in ``MANIFEST.in``.
+    '''
+    def run(self):
+        # We want to skip the 'build_sphinx' step when we're run as part of
+        # installing a sdist, since the sdist doesn't contain docs/conf.py
+        # (docs isn't a package, and we don't explicitly include the file in
+        # MANIFEST.in) and it already has the man page anyway.
+        build_docs_path = os.path.join(os.getcwd(), 'docs', 'conf.py')
+        if os.path.isfile(build_docs_path):
+            self.run_command('build_sphinx')
+        SetupToolsBdistPyCmd.run(self)
+
+
+class SphinxThenSetuptoolsSdistCmd(SetupToolsSdistCmd):
+    '''
+    Ensures that building a "source distribution" triggers the creation of the
+    dynamic Sphinx-generated man page which is referenced in ``MANIFEST.in``.
+    '''
     def run(self):
         self.run_command('build_sphinx')
-        SetupToolsBuild.run(self)
-
+        SetupToolsSdistCmd.run(self)
 
 setup(
     cmdclass={
-        # 'build': SphinxBuild,
-        # 'install': SphinxInstall,
+        'sdist': SphinxThenSetuptoolsSdistCmd,
+        'build_py': SphinxThenSetuptoolsBdistPyCmd,
     },
     name='git-guilt',
     version=version.get_git_version(),
