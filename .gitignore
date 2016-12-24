@@ -5,3 +5,4 @@ docs/doctrees/
 .coverage
 *.pyc
 RELEASE-VERSION
+.tox
