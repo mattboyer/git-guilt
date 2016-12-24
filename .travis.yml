@@ -8,9 +8,8 @@ before_script:
         - pip freeze
 
 script:
-        - tox -vv
+        - tox -v
 
 after_success:
         - cd ${TRAVIS_BUILD_DIR}
         - coveralls
-        - git guilt HEAD~1 HEAD
