@@ -1,16 +1,13 @@
 from setuptools import setup
-from distutils.command.build import build as DistUtilsBuild
+# Do we even need the distutils command?
+# from distutils.command.build import build as DistUtilsBuild
+# Setuptools is installed in the Tox venv and therefore PyLint has no problem
+# with it!
 from setuptools.command.install import install as SetupToolsBuild
 import version
 
-class SphinxBuild(DistUtilsBuild):
-
-    def run(self):
-        self.run_command('build_sphinx')
-        DistUtilsBuild.run(self)
 
 class SphinxInstall(SetupToolsBuild):
-
     def run(self):
         self.run_command('build_sphinx')
         SetupToolsBuild.run(self)
@@ -18,8 +15,8 @@ class SphinxInstall(SetupToolsBuild):
 
 setup(
     cmdclass={
-        'build': SphinxBuild,
-        'install': SphinxInstall,
+        # 'build': SphinxBuild,
+        # 'install': SphinxInstall,
     },
     name='git-guilt',
     version=version.get_git_version(),
