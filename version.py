@@ -32,11 +32,10 @@
 #   include RELEASE-VERSION
 
 from __future__ import print_function
-
-__all__ = ("get_git_version")
-
 from git_guilt.guilt import GitRunner, GitError
 import os
+
+__all__ = ("get_git_version")
 
 
 def call_git_describe(abbrev=4):
@@ -56,21 +55,22 @@ def call_git_describe(abbrev=4):
     else:
         return release
 
+
 def read_release_version():
     try:
         with open(get_release_version_path(), "r") as f:
             version = f.readlines()[0]
             return version.strip()
-    except IOError:
+    except (IOError, OSError):
         return None
-    except OSError:
-        return None
+
 
 def get_release_version_path():
     top_level_dir = os.path.dirname(os.path.abspath(__file__))
     assert os.path.isdir(top_level_dir)
     rv_path = os.path.join(top_level_dir, 'RELEASE-VERSION')
     return rv_path
+
 
 def write_release_version(version):
     f = open(get_release_version_path(), "w")
