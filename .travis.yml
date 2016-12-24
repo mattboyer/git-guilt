@@ -6,7 +6,7 @@ python:
         - "2.7"
 
 before_install:
-        - pip install tox
+        - pip install -r build_requirements.txt
         - pip freeze
 
 script:
