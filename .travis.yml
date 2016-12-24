@@ -4,11 +4,11 @@ sudo: false
 python:
         - "3.5"
 
-before_install:
+before_script:
         - pip freeze
 
 script:
-        - tox
+        - tox -vv
 
 after_success:
         - cd ${TRAVIS_BUILD_DIR}
