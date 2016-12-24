@@ -7,3 +7,4 @@ pylint
 setuptools
 Sphinx
 sphinx-argparse>=0.1.15
+tox
