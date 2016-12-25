@@ -151,7 +151,13 @@ class GitRunner(object):
         text_files = set()
         binary_files = set()
 
-        diff_args = ['diff', '-z', '--numstat', since_rev]
+        # File renames lead to funny output with -z. Instead of having the old
+        # then the new name on the same NULL-separated row of output, we get
+        # ADDITIONS\tDELETIONS\0OLD_NAME\0NEW_NAME\0. This is a feature, as per
+        # commit f604652e05073aaef6d83e83b5d6499b55bb6dfd in the Git-scm repo.
+        # At any rate, we want to keep track of the old and new names
+        # separately.
+        diff_args = ['diff', '-z', '--numstat', '--no-renames', since_rev]
         if until_rev:
             diff_args.append(until_rev)
 
