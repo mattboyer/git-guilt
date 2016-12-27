@@ -1,4 +1,5 @@
 import os
+import shutil
 from setuptools import setup
 from setuptools.command.build_py import build_py as SetupToolsBdistPyCmd
 from setuptools.command.sdist import sdist as SetupToolsSdistCmd
@@ -30,6 +31,11 @@ class SphinxThenSetuptoolsSdistCmd(SetupToolsSdistCmd):
     def run(self):
         self.run_command('build_sphinx')
         SetupToolsSdistCmd.run(self)
+        for distfile in self.filelist.files:
+            if distfile.endswith('PKG-INFO'):
+                egginfo_dir = os.path.dirname(distfile)
+                shutil.rmtree(egginfo_dir)
+                break
 
 setup(
     cmdclass={
