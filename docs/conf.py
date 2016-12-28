@@ -45,7 +45,7 @@ master_doc = 'git-guilt.1'
 
 # General information about the project.
 project = 'git-guilt'
-copyright = '2015, Matt Boyer'
+copyright = '2015-2016, Matt Boyer'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

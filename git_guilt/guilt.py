@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2015, Matt Boyer
+# Copyright (c) 2015-2016, Matt Boyer
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
